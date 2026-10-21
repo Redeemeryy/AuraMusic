@@ -1,0 +1,392 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+:root {
+  --primary: #0058bc;
+  --primary-container: #0070eb;
+  --on-primary: #ffffff;
+  --secondary: #006a65;
+  --secondary-container: #5df6ec;
+  --tertiary: #8a2bb9;
+  --surface: #fbf9fc;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f5f3f6;
+  --surface-container: #efedf0;
+  --surface-container-high: #e9e7eb;
+  --on-surface: #1b1b1e;
+  --on-surface-variant: #414755;
+  --outline: #717786;
+  --outline-variant: #c1c6d7;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--surface);
+  color: var(--on-surface);
+  overscroll-behavior: none;
+}
+
+/* Scrollbar hidden */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Liquid Jelly Glass Effect - GPU Accelerated & Smooth */
+.jelly-glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.95),
+    0 4px 16px rgba(0, 88, 188, 0.05);
+  transform: translateZ(0);
+}
+
+.jelly-glass-solid {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px) saturate(170%);
+  -webkit-backdrop-filter: blur(16px) saturate(170%);
+  box-shadow: 
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.95),
+    0 8px 24px rgba(0, 88, 188, 0.08);
+  transform: translateZ(0);
+}
+
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Animations */
+@keyframes spinDisc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-disc {
+  animation: spinDisc 20s linear infinite;
+  animation-play-state: paused; /* Default is strictly paused; never spins on start or pause */
+  will-change: transform;
+}
+
+.animate-spin-disc.playing {
+  animation-play-state: running !important;
+}
+
+.animate-spin-disc.paused {
+  animation-play-state: paused !important;
+}
+
+/* Wave Bar Bounce */
+@keyframes waveBounce {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+.wave-bar {
+  display: inline-block;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 9999px;
+  animation: waveBounce 1.2s ease-in-out infinite;
+}
+
+/* Tactile Active States */
+.active-squish:active {
+  transform: scale(0.95);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Fullscreen Views */
+.view-container {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px), 38px) + 58px) !important;
+  padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 24px) + 144px) !important;
+  display: none;
+}
+
+.view-container.active {
+  display: block;
+}
+
+/* Material symbols */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+/* Safe area padding & modern Android flagships (Vivo X200 Pro mini / Xiaomi 13 Ultra) */
+:root {
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+  --safe-right: 0px;
+}
+
+.pt-safe {
+  padding-top: max(var(--safe-top, 0px), env(safe-area-inset-top, 0px), 38px);
+}
+
+.pb-safe {
+  padding-bottom: max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 24px);
+}
+
+.px-safe {
+  padding-left: max(var(--safe-left, 0px), env(safe-area-inset-left, 0px), 16px);
+  padding-right: max(var(--safe-right, 0px), env(safe-area-inset-right, 0px), 16px);
+}
+
+/* Floating mini player dynamic positioning (never obstructs bottom navigation bar) */
+#miniPlayer {
+  bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 24px) + 85px);
+}
+
+/* Floating mini player position in subpage (playlist detail) */
+#miniPlayer.in-subpage {
+  bottom: max(calc(var(--safe-bottom, 0px) + 10px), calc(env(safe-area-inset-bottom, 0px) + 10px), 18px) !important;
+}
+
+#fullPlayerOverlay,
+#playlistDetailOverlay,
+#commentsOverlay,
+#queueOverlay {
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+#fullPlayerOverlay.translate-y-full,
+#playlistDetailOverlay.translate-y-full,
+#commentsOverlay.translate-y-full,
+#queueOverlay.translate-y-full {
+  transform: translate3d(0, 100%, 0) !important;
+  -webkit-transform: translate3d(0, 100%, 0) !important;
+  pointer-events: none !important;
+}
+
+/* 60/120 FPS High-Performance Scroll Optimization for List Items:
+   Avoid stacking expensive per-item backdrop-filter blurs inside scrolling lists */
+#queueList .queue-item,
+#plDetailTracksList > div,
+#searchResultsList > div,
+#commentsList > div {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 1.5px 6px rgba(0, 0, 0, 0.03) !important;
+  contain: content;
+  transform: translateZ(0);
+}
+
+/* Player Stage Switching */
+#vinylStage, #lyricsStage {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.player-mode-lyrics #vinylStage {
+  display: none !important;
+  opacity: 0;
+}
+.player-mode-lyrics #lyricsStage {
+  display: flex !important;
+  opacity: 1;
+}
+.player-mode-vinyl #vinylStage {
+  display: flex !important;
+  opacity: 1;
+}
+.player-mode-vinyl #lyricsStage {
+  display: none !important;
+  opacity: 0;
+}
+
+/* Liquid Jelly Dynamic Island Toast Capsule */
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.88);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.92);
+  }
+}
+
+.animate-toast-in {
+  animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-toast-out {
+  animation: toastOut 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Physical Tonearm for Vinyl Disc (Bug 8) */
+.tonearm-container {
+  position: absolute;
+  top: -26px;
+  right: 14px;
+  width: 54px;
+  height: 115px;
+  transform-origin: 27px 14px;
+  transform: rotate(-28deg);
+  transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 25;
+}
+
+.tonearm-container.playing {
+  transform: rotate(0deg);
+}
+
+.tonearm-pivot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #cbd5e1 55%, #64748b 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.95);
+  position: absolute;
+  top: 0;
+  left: 14px;
+}
+
+.tonearm-rod {
+  position: absolute;
+  top: 20px;
+  left: 25px;
+  width: 4px;
+  height: 76px;
+  background: linear-gradient(to right, #94a3b8, #f8fafc, #64748b);
+  border-radius: 2px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.25);
+  transform: rotate(12deg);
+  transform-origin: top center;
+}
+
+.tonearm-head {
+  position: absolute;
+  top: 90px;
+  left: 9px;
+  width: 14px;
+  height: 22px;
+  background: linear-gradient(135deg, #0f172a, #334155);
+  border-radius: 3px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+  border-top: 2px solid #0058bc;
+  transform: rotate(20deg);
+}
+
+/* Ambient Refraction Aura Breathing (Bug 8) */
+@keyframes auraBreath {
+  0%, 100% {
+    transform: scale(0.94);
+    opacity: 0.6;
+    filter: blur(40px) hue-rotate(0deg);
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.95;
+    filter: blur(48px) hue-rotate(25deg);
+  }
+}
+
+.aura-breathing {
+  animation: auraBreath 4s ease-in-out infinite;
+}
+
+/* Lyric Active Glow & Pulse (Bug 8) */
+.lyric-line.active {
+  color: var(--primary) !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  transform: scale(1.05);
+  text-shadow: 0 2px 14px rgba(0, 88, 188, 0.28);
+}
+
+/* Quality & Plugin Overlays */
+#qualityModalOverlay.active {
+  opacity: 1;
+  pointer-events: auto !important;
+}
+
+#qualityModalOverlay.active #qualityModalContent {
+  transform: translateY(0);
+}
+
+#pluginModalOverlay {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+#pluginModalOverlay.translate-y-full {
+  pointer-events: none !important;
+}
+
+/* Enhanced Lyric Interactive Styles */
+.lyric-line {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease, background-color 0.2s ease;
+  cursor: pointer;
+  border-radius: 14px;
+  padding: 8px 16px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lyric-line:active {
+  transform: scale(0.95);
+  background: rgba(0, 88, 188, 0.1);
+  color: var(--primary) !important;
+}
+
+.lyric-line.center-focused {
+  color: var(--on-surface) !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+#lyricsTimelineGuide.visible {
+  opacity: 1;
+}
+
+
+

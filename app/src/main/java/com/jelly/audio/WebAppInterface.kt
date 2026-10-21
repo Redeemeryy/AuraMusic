@@ -1,0 +1,190 @@
+package com.jelly.audio
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.widget.Toast
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+
+class WebAppInterface(private val activity: MainActivity) {
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .build()
+
+    @JavascriptInterface
+    fun playMusic(url: String, trackJson: String) {
+        mainHandler.post {
+            activity.musicService?.play(url, trackJson)
+        }
+    }
+
+    @JavascriptInterface
+    fun pauseMusic() {
+        mainHandler.post {
+            activity.musicService?.pause()
+        }
+    }
+
+    @JavascriptInterface
+    fun resumeMusic() {
+        mainHandler.post {
+            activity.musicService?.resume()
+        }
+    }
+
+    @JavascriptInterface
+    fun seekTo(positionMs: Int) {
+        mainHandler.post {
+            activity.musicService?.seekTo(positionMs)
+        }
+    }
+
+    @JavascriptInterface
+    fun updateCurrentLyric(lyric: String) {
+        mainHandler.post {
+            activity.musicService?.updateCurrentLyric(lyric)
+        }
+    }
+
+    @JavascriptInterface
+    fun getSystemInsets(): String {
+        return try {
+            val json = JSONObject()
+            json.put("top", activity.currentTopInsetDp)
+            json.put("bottom", activity.currentBottomInsetDp)
+            json.put("left", activity.currentLeftInsetDp)
+            json.put("right", activity.currentRightInsetDp)
+            json.toString()
+        } catch (e: Exception) {
+            "{\"top\":38,\"bottom\":24,\"left\":0,\"right\":0}"
+        }
+    }
+
+    @JavascriptInterface
+    fun getPlaybackState(): String {
+        return try {
+            val s = activity.musicService
+            val json = JSONObject()
+            json.put("isPlaying", s?.isPlaying ?: false)
+            json.put("currentPosition", s?.currentPosition ?: 0)
+            json.put("duration", s?.currentDuration ?: 0)
+            json.put("track", if (s?.currentTrackJson != null) JSONObject(s.currentTrackJson!!) else null)
+            json.toString()
+        } catch (e: Exception) {
+            JSONObject().apply {
+                put("isPlaying", false)
+                put("currentPosition", 0)
+                put("duration", 0)
+                put("track", null)
+            }.toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun toast(message: String) {
+        mainHandler.post {
+            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @JavascriptInterface
+    fun copyToClipboard(text: String) {
+        mainHandler.post {
+            val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Copied Text", text)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(activity, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @JavascriptInterface
+    fun httpRequest(requestId: String, url: String, method: String, headersJson: String, body: String?) {
+        val reqBuilder = Request.Builder().url(url)
+        var contentTypeStr = "application/json; charset=utf-8"
+
+        try {
+            val headersObj = JSONObject(headersJson)
+            val keys = headersObj.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = headersObj.getString(key)
+                if (key.equals("content-type", ignoreCase = true)) {
+                    contentTypeStr = value
+                }
+                reqBuilder.header(key, value)
+            }
+        } catch (e: Exception) {}
+
+        val httpMethod = method.uppercase()
+        val requestBody = if (httpMethod in listOf("POST", "PUT", "PATCH")) {
+            val contentType = contentTypeStr.toMediaTypeOrNull()
+            (body ?: "").toRequestBody(contentType)
+        } else null
+
+        reqBuilder.method(httpMethod, requestBody)
+
+        httpClient.newCall(reqBuilder.build()).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                activity.sendHttpResponseToWeb(requestId, 0, "{}", null, e.message ?: "网络请求失败")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val statusCode = response.code
+                val responseBody = response.body?.string() ?: ""
+                val respHeaders = JSONObject()
+                for ((name, value) in response.headers) {
+                    respHeaders.put(name, value)
+                }
+                activity.sendHttpResponseToWeb(requestId, statusCode, respHeaders.toString(), responseBody, null)
+            }
+        })
+    }
+
+    @JavascriptInterface
+    fun updateFavoriteState(isFav: Boolean) {
+        mainHandler.post {
+            activity.musicService?.updateFavoriteState(isFav)
+        }
+    }
+
+    @JavascriptInterface
+    fun pickPluginFile() {
+        mainHandler.post {
+            activity.openPluginFilePicker()
+        }
+    }
+
+    @JavascriptInterface
+    fun scanDownloadedPlugin(): String? {
+        return activity.tryAutoScanLocalPlugins()
+    }
+
+    @JavascriptInterface
+    fun openExternalUrl(url: String) {
+        mainHandler.post {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(activity, "无法打开链接: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
