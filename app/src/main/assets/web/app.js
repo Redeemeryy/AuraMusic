@@ -1144,8 +1144,8 @@
     }
     const touch = e.touches[0];
     // If lyrics are scrolled, only ignore drag down if touch is strictly inside the middle scrollable lyrics container
-    if (state.playerMode === 'lyrics' && el.lyricsScrollContainer.scrollTop > 5) {
-      if (touch.clientY > 160 && touch.clientY < (window.innerHeight - 220)) {
+    if (e.target.closest('#lyricsScrollContainer')) {
+      if (el.lyricsScrollContainer && el.lyricsScrollContainer.scrollTop > 5) {
         isDraggingPlayer = false;
         return;
       }
@@ -1175,7 +1175,8 @@
   el.fullPlayerOverlay.addEventListener('touchend', () => {
     if (!isDraggingPlayer) return;
     isDraggingPlayer = false;
-    if (currentDeltaY > 100) {
+    const threshold = (window.innerWidth > window.innerHeight) ? 60 : 90;
+    if (currentDeltaY > threshold) {
       closeFullPlayer();
     } else {
       // Rebound smoothly back up
@@ -1190,9 +1191,12 @@
   }, { passive: true });
 
   // Center Vinyl <-> Lyrics Flipping Click Handlers
-  el.vinylStage.addEventListener('click', () => setPlayerMode('lyrics'));
+  const isLandscapeMode = () => window.innerWidth > window.innerHeight;
+  el.vinylStage.addEventListener('click', () => {
+    if (!isLandscapeMode()) setPlayerMode('lyrics');
+  });
   el.lyricsStage.addEventListener('click', (e) => {
-    if (!e.target.closest('.lyric-line')) {
+    if (!isLandscapeMode() && !e.target.closest('.lyric-line')) {
       setPlayerMode('vinyl');
     }
   });
@@ -2335,7 +2339,9 @@
   }
 
   function handleLyricsUserScroll() {
-    if (state.playerMode !== 'lyrics' || state.lyrics.length === 0) return;
+    const isLand = window.innerWidth > window.innerHeight;
+    if (!isLand && state.playerMode !== 'lyrics') return;
+    if (state.lyrics.length === 0) return;
     state.isUserScrollingLyrics = true;
 
     // Determine lyric line closest to vertical center of lyricsScrollContainer
@@ -2458,6 +2464,20 @@
   }
 
   // Android Native Callbacks
+  window.onOrientationChanged = function (isLandscape) {
+    if (el.lyricsScrollContainer && state.currentLyricIndex >= 0) {
+      setTimeout(() => {
+        syncLyrics(state.currentTime, true);
+      }, 250);
+    }
+  };
+
+  window.addEventListener('resize', () => {
+    if (el.lyricsScrollContainer && state.currentLyricIndex >= 0) {
+      syncLyrics(state.currentTime, true);
+    }
+  });
+
   window.onNativePlaybackStateChanged = function (isPlaying) {
     updatePlayState(isPlaying);
   };

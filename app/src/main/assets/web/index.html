@@ -424,22 +424,29 @@
   </aside>
 
   <!-- Bottom Floating Navigation Bar -->
-  <nav class="fixed bottom-0 inset-x-0 z-30 pb-safe px-4 pt-1 pointer-events-none">
-    <div class="max-w-md mx-auto mb-2 pointer-events-auto">
-      <div class="jelly-glass rounded-full px-4 flex items-center justify-around h-16 shadow-lg border border-white/80">
-        <button data-view="discover" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-primary font-bold active-squish">
+  <nav id="mainNavBar" class="fixed bottom-0 inset-x-0 z-30 pb-safe px-4 pt-1 pointer-events-none">
+    <div class="max-w-md mx-auto mb-2 pointer-events-auto nav-inner-container">
+      <div class="jelly-glass rounded-full px-4 flex items-center justify-around h-16 shadow-lg border border-white/80 nav-glass-bar">
+        <!-- Landscape Nav Rail Brand Logo (车载/横屏侧边栏顶端微标) -->
+        <div class="hidden landscape:flex flex-col items-center justify-center mb-1 flex-shrink-0">
+          <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-md border border-white/80 p-0.5 bg-white/50">
+            <img src="logo.png" class="w-full h-full object-cover rounded-xl" alt="AuraMusic" />
+          </div>
+        </div>
+
+        <button data-view="discover" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-primary font-bold active-squish" title="推荐">
           <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
           <span class="text-[10px] mt-0.5">推荐</span>
         </button>
-        <button data-view="search" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish">
+        <button data-view="search" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish" title="搜索">
           <span class="material-symbols-outlined text-[22px]">search</span>
           <span class="text-[10px] mt-0.5">搜索</span>
         </button>
-        <button data-view="library" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish">
+        <button data-view="library" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish" title="资料库">
           <span class="material-symbols-outlined text-[22px]">library_music</span>
           <span class="text-[10px] mt-0.5">资料库</span>
         </button>
-        <button data-view="settings" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish">
+        <button data-view="settings" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-on-surface-variant active-squish" title="设置">
           <span class="material-symbols-outlined text-[22px]">tune</span>
           <span class="text-[10px] mt-0.5">设置</span>
         </button>
@@ -453,7 +460,7 @@
     <div class="pointer-events-none fixed top-12 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-gradient-to-tr from-cyan-300/30 via-indigo-300/30 to-purple-300/30 blur-3xl opacity-90 -z-10"></div>
     
     <!-- Top Header -->
-    <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto flex-shrink-0">
+    <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto flex-shrink-0" id="fullPlayerHeader">
       <button id="btnCloseFullPlayer" class="jelly-glass w-11 h-11 rounded-full flex items-center justify-center text-on-surface active-squish shadow-sm">
         <span class="material-symbols-outlined text-[22px]">keyboard_arrow_down</span>
       </button>
@@ -500,7 +507,7 @@
             </div>
           </div>
         </div>
-        <div class="text-[11px] font-semibold text-outline mt-3 flex items-center gap-1 opacity-70">
+        <div id="vinylTapHint" class="text-[11px] font-semibold text-outline mt-3 flex items-center gap-1 opacity-70">
           <span class="material-symbols-outlined text-[14px]">touch_app</span>
           <span>轻触唱片切换歌词</span>
         </div>
@@ -521,7 +528,7 @@
         <div id="lyricsScrollContainer" class="flex-1 overflow-y-auto py-24 flex flex-col items-center gap-5 max-w-md mx-auto w-full text-center px-4 no-scrollbar scroll-smooth">
           <div class="text-[14px] text-on-surface-variant/60 font-medium my-auto">正在加载同步歌词...</div>
         </div>
-        <div class="text-[11px] font-semibold text-outline mb-1 opacity-70 flex items-center gap-1">
+        <div id="lyricsTapHint" class="text-[11px] font-semibold text-outline mb-1 opacity-70 flex items-center gap-1">
           <span class="material-symbols-outlined text-[14px]">album</span>
           <span>轻触空白返回唱片</span>
         </div>
@@ -530,7 +537,7 @@
     </div>
 
     <!-- Bottom Docked Control Panel (Always visible in both Vinyl and Lyrics modes) -->
-    <div class="w-full max-w-md mx-auto flex flex-col gap-2 pb-2 flex-shrink-0">
+    <div class="w-full max-w-md mx-auto flex flex-col gap-2 pb-2 flex-shrink-0" id="playerBottomControls">
       
       <!-- Title, Artist & Quality Header -->
       <div class="flex items-center justify-between px-2">

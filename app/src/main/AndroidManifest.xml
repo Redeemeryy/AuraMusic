@@ -10,6 +10,23 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Car Head Unit & Tablet Hardware Compatibility (车机与车载中控硬件兼容性声明) -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+
+    <!-- Support all screen sizes, in-car screens, widescreen center consoles and tablets -->
+    <supports-screens
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true"
+        android:anyDensity="true"
+        android:resizeable="true" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -21,16 +38,19 @@
         android:theme="@style/Theme.JellyAudio"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
+        android:resizeableActivity="true"
         tools:targetApi="34">
 
-        <meta-data android:name="android.max_aspect" android:value="2.5" />
+        <!-- Support widescreen car dashboards (up to 3.5 aspect ratio) -->
+        <meta-data android:name="android.max_aspect" android:value="3.5" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize"
+            android:resizeableActivity="true"
             android:theme="@style/Theme.JellyAudio">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -23,6 +23,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.content.res.Configuration
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -272,6 +273,16 @@ class MainActivity : AppCompatActivity() {
             webView.restoreState(savedInstanceState)
         } else {
             webView.loadUrl("file:///android_asset/web/index.html")
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Request insets refresh and notify web frontend of landscape / portrait mode switch
+        webView.post {
+            ViewCompat.requestApplyInsets(webView)
+            val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+            evaluateJavascript("window.onOrientationChanged && window.onOrientationChanged($isLandscape);")
         }
     }
 
