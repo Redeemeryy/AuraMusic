@@ -1087,8 +1087,14 @@
     const isLyrics = mode === 'lyrics';
     el.fullPlayerOverlay.classList.toggle('player-mode-lyrics', isLyrics);
     el.fullPlayerOverlay.classList.toggle('player-mode-vinyl', !isLyrics);
-    el.vinylStage.classList.toggle('hidden', isLyrics);
-    el.lyricsStage.classList.toggle('hidden', !isLyrics);
+    const isLand = window.innerWidth > window.innerHeight;
+    if (!isLand) {
+      el.vinylStage.classList.toggle('hidden', isLyrics);
+      el.lyricsStage.classList.toggle('hidden', !isLyrics);
+    } else {
+      el.vinylStage.classList.remove('hidden');
+      el.lyricsStage.classList.remove('hidden');
+    }
 
     const icon = isLyrics ? 'album' : 'lyrics';
     const text = isLyrics ? '唱片' : '歌词';
@@ -1096,8 +1102,8 @@
     if (el.btnFlipStageIcon) el.btnFlipStageIcon.textContent = icon;
     if (el.btnFlipStageText) el.btnFlipStageText.textContent = text;
 
-    if (isLyrics) {
-      syncLyrics(state.currentTime);
+    if (isLyrics || isLand) {
+      syncLyrics(state.currentTime, true);
     }
   }
 
@@ -1106,6 +1112,14 @@
     el.fullPlayerOverlay.style.transform = '';
     el.fullPlayerOverlay.style.transition = '';
     el.fullPlayerOverlay.classList.remove('translate-y-full');
+    const isLand = window.innerWidth > window.innerHeight;
+    if (isLand) {
+      el.vinylStage.classList.remove('hidden');
+      el.lyricsStage.classList.remove('hidden');
+      if (state.currentLyricIndex >= 0) {
+        setTimeout(() => syncLyrics(state.currentTime, true), 120);
+      }
+    }
     try {
       localStorage.setItem('jelly_full_player_open', 'true');
     } catch (e) {}
@@ -2465,6 +2479,18 @@
 
   // Android Native Callbacks
   window.onOrientationChanged = function (isLandscape) {
+    if (isLandscape) {
+      if (el.vinylStage) el.vinylStage.classList.remove('hidden');
+      if (el.lyricsStage) el.lyricsStage.classList.remove('hidden');
+    } else {
+      if (state.playerMode === 'lyrics') {
+        if (el.vinylStage) el.vinylStage.classList.add('hidden');
+        if (el.lyricsStage) el.lyricsStage.classList.remove('hidden');
+      } else {
+        if (el.vinylStage) el.vinylStage.classList.remove('hidden');
+        if (el.lyricsStage) el.lyricsStage.classList.add('hidden');
+      }
+    }
     if (el.lyricsScrollContainer && state.currentLyricIndex >= 0) {
       setTimeout(() => {
         syncLyrics(state.currentTime, true);
@@ -2473,6 +2499,11 @@
   };
 
   window.addEventListener('resize', () => {
+    const isLand = window.innerWidth > window.innerHeight;
+    if (isLand) {
+      if (el.vinylStage) el.vinylStage.classList.remove('hidden');
+      if (el.lyricsStage) el.lyricsStage.classList.remove('hidden');
+    }
     if (el.lyricsScrollContainer && state.currentLyricIndex >= 0) {
       syncLyrics(state.currentTime, true);
     }
