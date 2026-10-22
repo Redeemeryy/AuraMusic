@@ -169,6 +169,45 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun getAppVersion(): String {
+        return try {
+            val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
+            val json = JSONObject()
+            json.put("versionName", pInfo.versionName ?: "1.1.0")
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                json.put("versionCode", pInfo.longVersionCode)
+            } else {
+                json.put("versionCode", pInfo.versionCode.toLong())
+            }
+            json.toString()
+        } catch (e: Exception) {
+            "{\"versionName\":\"1.1.0\",\"versionCode\":2}"
+        }
+    }
+
+    @JavascriptInterface
+    fun downloadAndInstallApk(apkUrl: String, fileName: String) {
+        mainHandler.post {
+            try {
+                val uri = android.net.Uri.parse(apkUrl)
+                val request = android.app.DownloadManager.Request(uri).apply {
+                    setTitle("正在下载 AuraMusic 新版本")
+                    setDescription(fileName)
+                    setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, fileName)
+                    setMimeType("application/vnd.android.package-archive")
+                }
+                val manager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                manager.enqueue(request)
+                Toast.makeText(activity, "已开始在后台下载更新包，下载完成后点击通知即可安装", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                // Fallback to external browser
+                openExternalUrl(apkUrl)
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun scanDownloadedPlugin(): String? {
         return activity.tryAutoScanLocalPlugins()
     }

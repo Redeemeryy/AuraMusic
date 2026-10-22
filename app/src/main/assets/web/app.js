@@ -242,6 +242,20 @@
     btnConfirmPluginUpdate: document.getElementById('btnConfirmPluginUpdate'),
     btnOpenPluginUpdateBrowser: document.getElementById('btnOpenPluginUpdateBrowser'),
 
+    // App Release Update Modal
+    appVersionText: document.getElementById('appVersionText'),
+    appUpdateBadge: document.getElementById('appUpdateBadge'),
+    btnCheckAppUpdate: document.getElementById('btnCheckAppUpdate'),
+    appUpdateOverlay: document.getElementById('appUpdateOverlay'),
+    appUpdateCard: document.getElementById('appUpdateCard'),
+    appUpdateReleaseTitle: document.getElementById('appUpdateReleaseTitle'),
+    appUpdateCurrentVer: document.getElementById('appUpdateCurrentVer'),
+    appUpdateNewVer: document.getElementById('appUpdateNewVer'),
+    appUpdateNotes: document.getElementById('appUpdateNotes'),
+    btnCancelAppUpdate: document.getElementById('btnCancelAppUpdate'),
+    btnConfirmAppUpdate: document.getElementById('btnConfirmAppUpdate'),
+    btnOpenGitHubRelease: document.getElementById('btnOpenGitHubRelease'),
+
     inputPluginFile: document.getElementById('inputPluginFile'),
     btnImportFromFile: document.getElementById('btnImportFromFile'),
     inputPluginUrl: document.getElementById('inputPluginUrl'),
@@ -1869,6 +1883,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (el.appUpdateOverlay && !el.appUpdateOverlay.classList.contains('pointer-events-none')) {
+      closeAppUpdateDialog();
+      return true;
+    }
     if (el.pluginNoticeOverlay && !el.pluginNoticeOverlay.classList.contains('pointer-events-none')) {
       closePluginNoticeDialog();
       return true;
@@ -3362,6 +3380,167 @@
     });
   }
 
+  // ==========================================
+  // GitHub Releases App Update System (AuraMusic)
+  // ==========================================
+  const GITHUB_REPO_API = 'https://api.github.com/repos/Redeemeryy/AuraMusic/releases/latest';
+  let activeAppRelease = null;
+  const dismissedAppReleaseTags = new Set();
+
+  function compareSemver(v1, v2) {
+    const parse = v => (v || '').replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
+    const p1 = parse(v1);
+    const p2 = parse(v2);
+    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+      const num1 = p1[i] || 0;
+      const num2 = p2[i] || 0;
+      if (num1 > num2) return 1;
+      if (num1 < num2) return -1;
+    }
+    return 0;
+  }
+
+  function getInstalledAppVersion() {
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
+        const info = JSON.parse(window.AndroidBridge.getAppVersion());
+        return info.versionName || '1.1.0';
+      }
+    } catch (e) {}
+    return '1.1.0';
+  }
+
+  function showAppUpdateDialog(release, currentVer) {
+    if (!release || !el.appUpdateOverlay) return;
+    activeAppRelease = release;
+
+    if (el.appUpdateReleaseTitle) {
+      el.appUpdateReleaseTitle.textContent = release.name || `AuraMusic ${release.tag_name}`;
+    }
+    if (el.appUpdateCurrentVer) {
+      el.appUpdateCurrentVer.textContent = currentVer.startsWith('v') ? currentVer : `v${currentVer}`;
+    }
+    if (el.appUpdateNewVer) {
+      el.appUpdateNewVer.textContent = release.tag_name || '最新版本';
+    }
+    if (el.appUpdateNotes) {
+      el.appUpdateNotes.textContent = release.body || '包含多项功能升级与稳定性提升，建议立即更新以获得更佳体验。';
+    }
+
+    el.appUpdateOverlay.classList.remove('pointer-events-none', 'opacity-0');
+    el.appUpdateOverlay.classList.add('opacity-100');
+    if (el.appUpdateCard) {
+      el.appUpdateCard.classList.remove('scale-95');
+      el.appUpdateCard.classList.add('scale-100');
+    }
+  }
+
+  function closeAppUpdateDialog() {
+    if (!el.appUpdateOverlay) return;
+    if (activeAppRelease?.tag_name) {
+      dismissedAppReleaseTags.add(activeAppRelease.tag_name);
+    }
+    el.appUpdateOverlay.classList.remove('opacity-100');
+    el.appUpdateOverlay.classList.add('opacity-0', 'pointer-events-none');
+    if (el.appUpdateCard) {
+      el.appUpdateCard.classList.remove('scale-100');
+      el.appUpdateCard.classList.add('scale-95');
+    }
+  }
+
+  async function checkAppReleaseUpdate(isManual = false) {
+    const currentVer = getInstalledAppVersion();
+    if (el.appVersionText) {
+      el.appVersionText.textContent = currentVer.startsWith('v') ? currentVer : `v${currentVer}`;
+    }
+
+    if (isManual) {
+      toast('正在向 GitHub 检索软件版本...');
+    }
+
+    try {
+      const res = await nativeHttpFetch(GITHUB_REPO_API, {
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'AuraMusic-Mobile-Updater'
+        }
+      });
+
+      if (res.status !== 200 || !res.body) {
+        throw new Error(`GitHub 访问受限 (HTTP ${res.status || 0})`);
+      }
+
+      const release = typeof res.body === 'string' ? JSON.parse(res.body) : res.body;
+      const latestTag = release.tag_name || '';
+
+      if (latestTag && compareSemver(latestTag, currentVer) > 0) {
+        // New version found!
+        if (el.appUpdateBadge) el.appUpdateBadge.classList.remove('hidden');
+
+        if (!isManual && dismissedAppReleaseTags.has(latestTag)) {
+          return;
+        }
+
+        showAppUpdateDialog(release, currentVer);
+      } else {
+        if (el.appUpdateBadge) el.appUpdateBadge.classList.add('hidden');
+        if (isManual) {
+          toast(`当前软件已是最新版本 (v${currentVer})`);
+        }
+      }
+    } catch (err) {
+      console.warn('[AppUpdate] Check release error:', err);
+      if (isManual) {
+        toast('检查软件更新失败: ' + (err.message || '网络连接超时'));
+      }
+    }
+  }
+
+  window.checkAppReleaseUpdate = checkAppReleaseUpdate;
+
+  if (el.btnCheckAppUpdate) {
+    el.btnCheckAppUpdate.addEventListener('click', () => {
+      checkAppReleaseUpdate(true);
+    });
+  }
+
+  if (el.btnCancelAppUpdate) {
+    el.btnCancelAppUpdate.addEventListener('click', closeAppUpdateDialog);
+  }
+
+  if (el.btnConfirmAppUpdate) {
+    el.btnConfirmAppUpdate.addEventListener('click', () => {
+      if (!activeAppRelease) return;
+      const assets = activeAppRelease.assets || [];
+      const apkAsset = assets.find(a => (a.name || '').endsWith('.apk')) || assets[0];
+      const downloadUrl = apkAsset?.browser_download_url || activeAppRelease.html_url;
+      const fileName = apkAsset?.name || `AuraMusic-${activeAppRelease.tag_name || 'update'}.apk`;
+
+      if (downloadUrl.endsWith('.apk') && window.AndroidBridge && typeof window.AndroidBridge.downloadAndInstallApk === 'function') {
+        window.AndroidBridge.downloadAndInstallApk(downloadUrl, fileName);
+        closeAppUpdateDialog();
+      } else {
+        if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+          window.AndroidBridge.openExternalUrl(downloadUrl);
+        } else {
+          window.open(downloadUrl, '_blank');
+        }
+        closeAppUpdateDialog();
+      }
+    });
+  }
+
+  if (el.btnOpenGitHubRelease) {
+    el.btnOpenGitHubRelease.addEventListener('click', () => {
+      const url = activeAppRelease?.html_url || 'https://github.com/Redeemeryy/AuraMusic/releases';
+      if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+        window.AndroidBridge.openExternalUrl(url);
+      } else {
+        window.open(url, '_blank');
+      }
+    });
+  }
+
   // Reload Plugin
   if (el.btnReloadPlugin) {
     el.btnReloadPlugin.addEventListener('click', async () => {
@@ -4714,6 +4893,17 @@
       if (localStorage.getItem('jelly_full_player_open') === 'true' && state.currentTrack) {
         openFullPlayer();
       }
+
+      // Display compiled app version in Settings
+      const appVer = getInstalledAppVersion();
+      if (el.appVersionText) {
+        el.appVersionText.textContent = appVer.startsWith('v') ? appVer : `v${appVer}`;
+      }
+
+      // Check for App Release updates from GitHub
+      setTimeout(() => {
+        checkAppReleaseUpdate(false);
+      }, 2200);
 
       // Load rank hot tracks, playlists and daily recommendations if plugin is initialized
       if (window.MusicAPI && window.MusicAPI.initialized) {

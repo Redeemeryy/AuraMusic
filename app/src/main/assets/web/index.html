@@ -378,10 +378,19 @@
           </div>
         </div>
 
-        <!-- App Info -->
-        <div class="text-center py-2">
-          <div class="text-[12px] font-bold text-on-surface-variant">AuraMusic Mobile • v1.0.0</div>
-          <div class="text-[11px] text-outline mt-0.5">灵音 • Powered by CeruMusic Engine & Android Media3</div>
+        <!-- App Info & Version Checker -->
+        <div class="text-center py-2 flex flex-col items-center gap-1.5">
+          <div class="text-[12px] font-bold text-on-surface-variant flex items-center justify-center gap-1.5">
+            <span>AuraMusic Mobile</span>
+            <span>•</span>
+            <span id="appVersionText">v1.1.0</span>
+            <span id="appUpdateBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">有新版</span>
+          </div>
+          <div class="text-[11px] text-outline">灵音 • Powered by CeruMusic Engine & Android Media3</div>
+          <button id="btnCheckAppUpdate" class="mt-1 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[12px] font-bold flex items-center gap-1.5 active-squish shadow-xs border border-primary/20">
+            <span class="material-symbols-outlined text-[16px]">sync</span>
+            <span>检查软件版本更新</span>
+          </button>
         </div>
       </div>
     </section>
@@ -1064,6 +1073,65 @@
         <span class="material-symbols-outlined text-[18px]">open_in_browser</span>
         <span>打开浏览器手动下载</span>
       </button>
+    </div>
+  </div>
+
+  <!-- Modal 8: 软件版本更新提示弹窗 (AuraMusic App Release Update Modal) -->
+  <div id="appUpdateOverlay" class="fixed inset-0 z-[85] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="jelly-glass rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4 transform transition-transform duration-300 scale-95 border border-white/80" id="appUpdateCard">
+      <!-- Header -->
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
+          <span class="material-symbols-outlined text-[26px]">system_update</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h3 class="text-[17px] font-bold text-on-surface truncate">发现软件新版本</h3>
+          <span class="text-[12px] text-on-surface-variant font-medium truncate block" id="appUpdateReleaseTitle">AuraMusic v1.1.0</span>
+        </div>
+      </div>
+
+      <!-- Version Pill -->
+      <div class="flex items-center justify-between p-3 rounded-2xl bg-white/60 border border-white/70">
+        <div class="flex flex-col">
+          <span class="text-[10px] text-outline font-semibold">当前已安装</span>
+          <span class="text-[13px] font-bold text-on-surface" id="appUpdateCurrentVer">v1.0.0</span>
+        </div>
+        <div class="flex items-center text-primary font-bold">
+          <span class="material-symbols-outlined text-[18px]">trending_flat</span>
+        </div>
+        <div class="flex flex-col text-right">
+          <span class="text-[10px] text-emerald-600 font-semibold">GitHub 最新版本</span>
+          <span class="text-[14px] font-extrabold text-emerald-600" id="appUpdateNewVer">v1.1.0</span>
+        </div>
+      </div>
+
+      <!-- Release Notes Box -->
+      <div class="flex flex-col gap-1.5 p-3 rounded-2xl bg-primary/5 border border-primary/15 max-h-48 overflow-y-auto">
+        <span class="text-[11px] font-bold text-primary flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">new_releases</span>
+          <span>更新日志</span>
+        </span>
+        <div class="text-[12px] text-on-surface leading-relaxed whitespace-pre-line" id="appUpdateNotes">
+          发现新版本，建议立即更新以获得更佳体验。
+        </div>
+      </div>
+
+      <!-- Actions Buttons -->
+      <div class="flex flex-col gap-2 pt-1">
+        <div class="grid grid-cols-2 gap-2.5">
+          <button id="btnCancelAppUpdate" class="py-2.5 px-4 rounded-xl jelly-glass text-on-surface font-semibold text-[13px] active-squish shadow-sm">
+            稍后提醒
+          </button>
+          <button id="btnConfirmAppUpdate" class="py-2.5 px-4 rounded-xl bg-gradient-to-r from-primary to-indigo-600 text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md active-squish">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            <span>立即更新</span>
+          </button>
+        </div>
+        <button id="btnOpenGitHubRelease" class="w-full py-2 px-3 rounded-xl bg-white/50 hover:bg-white text-outline text-[11px] font-medium flex items-center justify-center gap-1 active-squish">
+          <span class="material-symbols-outlined text-[14px]">open_in_browser</span>
+          <span>前往 GitHub Release 发布页查看</span>
+        </button>
+      </div>
     </div>
   </div>
 
