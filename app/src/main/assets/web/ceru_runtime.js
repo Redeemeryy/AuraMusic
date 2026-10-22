@@ -66,12 +66,14 @@ if (!Uint8Array.prototype.originalToString) {
           try {
             body = JSON.parse(data.body);
           } catch(e) {}
+          const headers = data.headers || {};
           req.resolve({
             statusCode: data.status,
             status: data.status,
-            headers: data.headers || {},
+            headers: headers,
             body: body,
-            raw: data.body
+            raw: data.body,
+            url: data.url || headers['x-final-url'] || headers['X-Final-Url'] || ''
           });
         }
       }
@@ -235,6 +237,251 @@ if (!Uint8Array.prototype.originalToString) {
     } catch (e) {
       return { list: [] };
     }
+  }
+
+  async function defaultPublicPlaylistDetail(id, source = 'tx') {
+    if (source === 'wy') {
+      try {
+        const detailUrl = `https://music.163.com/api/v6/playlist/detail?id=${id}`;
+        const detailRes = await nativeHttpFetch(detailUrl, {
+          headers: {
+            'Referer': 'https://music.163.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        const detailData = typeof detailRes.body === 'object' ? detailRes.body : JSON.parse(detailRes.body || '{}');
+        const pl = detailData.playlist;
+        if (!pl) return null;
+
+        const trackIds = (pl.trackIds || []).map(t => ({ id: t.id }));
+        let songs = [];
+        if (trackIds.length > 0) {
+          const chunkSize = 400;
+          for (let i = 0; i < trackIds.length; i += chunkSize) {
+            const chunk = trackIds.slice(i, i + chunkSize);
+            try {
+              const postBody = `c=${encodeURIComponent(JSON.stringify(chunk))}`;
+              const songsRes = await nativeHttpFetch('https://music.163.com/api/v3/song/detail', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Referer': 'https://music.163.com/',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                body: postBody
+              });
+              const sData = typeof songsRes.body === 'object' ? songsRes.body : JSON.parse(songsRes.body || '{}');
+              if (sData && Array.isArray(sData.songs)) {
+                songs.push(...sData.songs);
+              }
+            } catch (err) {
+              console.warn('[CeruRuntime] NetEase batch song detail error:', err);
+            }
+          }
+        }
+        if (songs.length === 0 && Array.isArray(pl.tracks) && pl.tracks.length > 0) {
+          songs = pl.tracks;
+        }
+
+        const items = songs.map(s => {
+          const singers = (s.ar || s.artists || []).map(a => a.name).join(' / ') || '未知歌手';
+          const album = s.al?.name || s.album?.name || '';
+          const pic = s.al?.picUrl || s.album?.picUrl || pl.coverImgUrl || '';
+          const durMs = s.dt || s.duration || 0;
+          const sId = String(s.id);
+          return {
+            id: sId,
+            songmid: sId,
+            title: s.name,
+            name: s.name,
+            subtitle: singers,
+            singer: singers,
+            source: 'wy',
+            ref: { id: sId, providerId: 'wy', kind: 'track' },
+            artworkUrl: pic,
+            img: pic,
+            albumName: album,
+            album: album,
+            interval: Math.floor(durMs / 1000),
+            metadata: {
+              artists: (s.ar || s.artists || []).map(a => a.name),
+              album: { title: album, id: String(s.al?.id || '') },
+              coverUrl: pic,
+              artworkUrl: pic,
+              durationMs: durMs,
+              qualities: ['128k', '320k', 'flac']
+            },
+            data: {
+              song: {
+                id: sId,
+                songmid: sId,
+                name: s.name,
+                singer: singers,
+                albumName: album,
+                interval: Math.floor(durMs / 1000),
+                img: pic,
+                source: 'wy',
+                types: ['128k', '320k', 'flac']
+              }
+            }
+          };
+        });
+
+        return {
+          id: String(pl.id || id),
+          title: pl.name || `网易云歌单 (${id})`,
+          author: pl.creator?.nickname || '网易云音乐',
+          cover: pl.coverImgUrl || '',
+          artworkUrl: pl.coverImgUrl || '',
+          total: items.length,
+          items: items
+        };
+      } catch (err) {
+        console.warn('[CeruRuntime] defaultPublicPlaylistDetail wy error:', err);
+        return null;
+      }
+    } else if (source === 'tx') {
+      try {
+        const url = `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&json=1&utf8=1&onlysong=0&disstid=${id}&format=json&g_tk=5381&loginUin=0&hostUin=0&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq`;
+        const resp = await nativeHttpFetch(url, {
+          headers: {
+            'Referer': `https://y.qq.com/n/yqq/playsquare/${id}.html`,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        const json = typeof resp.body === 'object' ? resp.body : JSON.parse(resp.body || '{}');
+        const cd = json?.cdlist?.[0];
+        if (!cd) return null;
+
+        const items = (cd.songlist || []).map(s => {
+          const singers = (s.singer || []).map(x => x.name).join(' / ') || '未知歌手';
+          const pic = s.albummid ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${s.albummid}.jpg` : (cd.logo || '');
+          const sId = s.songmid || s.mid || String(s.id);
+          const durSec = s.interval || 0;
+          return {
+            id: sId,
+            songmid: sId,
+            title: s.songname || s.name,
+            name: s.songname || s.name,
+            subtitle: singers,
+            singer: singers,
+            source: 'tx',
+            ref: { id: sId, providerId: 'tx', kind: 'track' },
+            artworkUrl: pic,
+            img: pic,
+            albumName: s.albumname || '',
+            album: s.albumname || '',
+            interval: durSec,
+            metadata: {
+              artists: (s.singer || []).map(x => x.name),
+              album: { title: s.albumname || '', id: s.albummid || '' },
+              coverUrl: pic,
+              artworkUrl: pic,
+              durationMs: durSec * 1000,
+              qualities: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'atmos', 'master']
+            },
+            data: {
+              song: {
+                id: sId,
+                songmid: sId,
+                name: s.songname || s.name,
+                singer: singers,
+                albumName: s.albumname || '',
+                interval: durSec,
+                img: pic,
+                source: 'tx',
+                types: ['128k', '320k', 'flac', 'flac24bit', 'hires', 'atmos', 'master']
+              }
+            }
+          };
+        });
+
+        return {
+          id: String(id),
+          title: cd.dissname || `QQ音乐歌单 (${id})`,
+          author: cd.nickname || 'QQ音乐',
+          cover: cd.logo || '',
+          artworkUrl: cd.logo || '',
+          total: items.length,
+          items: items
+        };
+      } catch (err) {
+        console.warn('[CeruRuntime] defaultPublicPlaylistDetail tx error:', err);
+        return null;
+      }
+    } else if (source === 'kg') {
+      try {
+        const url = `http://mobilecdn.kugou.com/api/v3/special/song?specialid=${id}&format=json`;
+        const resp = await nativeHttpFetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)' }
+        });
+        const json = typeof resp.body === 'object' ? resp.body : JSON.parse(resp.body || '{}');
+        const data = json?.data;
+        if (!data || !Array.isArray(data.info)) return null;
+
+        const items = data.info.map(s => {
+          let name = s.audio_name || '';
+          let singer = s.singername || '';
+          if (!name && s.filename && s.filename.includes(' - ')) {
+            const parts = s.filename.split(' - ');
+            singer = parts[0].trim();
+            name = parts.slice(1).join(' - ').trim();
+          }
+          const sId = s.hash;
+          const durSec = s.duration || 0;
+          return {
+            id: sId,
+            songmid: sId,
+            title: name || s.filename || '未知歌曲',
+            name: name || s.filename || '未知歌曲',
+            subtitle: singer || '未知歌手',
+            singer: singer || '未知歌手',
+            source: 'kg',
+            ref: { id: sId, providerId: 'kg', kind: 'track' },
+            artworkUrl: '',
+            img: '',
+            albumName: s.album_name || '',
+            album: s.album_name || '',
+            interval: durSec,
+            metadata: {
+              artists: [singer],
+              album: { title: s.album_name || '', id: s.album_id || '' },
+              coverUrl: '',
+              artworkUrl: '',
+              durationMs: durSec * 1000,
+              qualities: ['128k', '320k', 'flac']
+            },
+            data: {
+              song: {
+                id: sId,
+                songmid: sId,
+                hash: s.hash,
+                name: name || s.filename,
+                singer: singer,
+                albumName: s.album_name || '',
+                interval: durSec,
+                source: 'kg',
+                types: ['128k', '320k', 'flac']
+              }
+            }
+          };
+        });
+
+        return {
+          id: String(id),
+          title: data.specialname || `酷狗歌单 (${id})`,
+          author: data.nickname || '酷狗音乐',
+          cover: data.user_avatar || '',
+          artworkUrl: data.user_avatar || '',
+          total: items.length,
+          items: items
+        };
+      } catch (err) {
+        console.warn('[CeruRuntime] defaultPublicPlaylistDetail kg error:', err);
+        return null;
+      }
+    }
+    return null;
   }
 
   function nativeHttpFetch(url, options) {
@@ -783,8 +1030,15 @@ if (!Uint8Array.prototype.originalToString) {
 
     async getPlaylistDetail(id, source = 'tx') {
       const action = registeredActions.get('playlist.detail');
-      if (action) return action({ source, id }, this.createOp());
-      return null;
+      if (action) {
+        try {
+          const res = await action({ source, id }, this.createOp());
+          if (res && res.items && res.items.length > 0) return res;
+        } catch (e) {
+          console.warn('[CeruRuntime] action playlist.detail error, trying fallback:', e);
+        }
+      }
+      return await defaultPublicPlaylistDetail(id, source);
     },
 
     async getComments(trackRef, page = 1, limit = 20) {

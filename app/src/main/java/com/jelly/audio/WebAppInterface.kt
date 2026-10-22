@@ -149,6 +149,7 @@ class WebAppInterface(private val activity: MainActivity) {
                 for ((name, value) in response.headers) {
                     respHeaders.put(name, value)
                 }
+                respHeaders.put("x-final-url", response.request.url.toString())
                 activity.sendHttpResponseToWeb(requestId, statusCode, respHeaders.toString(), responseBody, null)
             }
         })

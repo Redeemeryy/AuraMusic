@@ -4369,9 +4369,9 @@
     const singer = song.singer || song.artist || (Array.isArray(song.artists) ? song.artists.join(' / ') : '') || '未知歌手';
     const providerId = (song.source || song.platform || 'tx').toLowerCase();
     const songId = String(song.songmid || song.id || song.hash || song.meta?.songId || ('track_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)));
-    const albumName = song.albumName || song.album || song.meta?.albumName || '';
+    const albumName = song.albumName || song.album || song.meta?.albumName || song.metadata?.album?.title || (typeof song.metadata?.album === 'string' ? song.metadata.album : '') || '';
     const albumId = song.albumId || song.meta?.albumId || '';
-    const img = song.img || song.artworkUrl || song.pic || song.cover || song.meta?.picUrl || '';
+    const img = song.img || song.artworkUrl || song.pic || song.cover || song.meta?.picUrl || song.metadata?.coverUrl || song.metadata?.artworkUrl || '';
     const intervalSec = parseIntervalToSeconds(song.interval || song.duration || song.meta?.interval);
 
     const rawQualities = Array.isArray(song.types) && song.types.length > 0 
@@ -4518,43 +4518,109 @@
           songItems = parsed.list;
         }
       }
-      // Case 4: Online Playlist Share URL
-      else if (content.includes('http://') || content.includes('https://')) {
-        showImportStatus('正在识别网络歌单...', '正在提取歌单平台与编号');
-        const qqMatch = content.match(/(?:playlist\/|id=)(\d{6,14})/);
-        const wyMatch = content.match(/(?:playlist\?id=|playlist\/)(\d{5,14})/);
-        const kgMatch = content.match(/(?:songlist|zlist)\/([a-zA-Z0-9]{6,36})/);
+      // Case 4: Online Playlist Share URL, Share Text or Playlist ID
+      else if (content.includes('http://') || content.includes('https://') || /^\d{5,14}$/.test(content.trim()) || /(?:163|qq|kugou|网易云|酷狗)/i.test(content)) {
+        showImportStatus('正在识别网络歌单...', '正在分析歌单平台与编号');
 
-        let source = 'tx';
+        let source = '';
         let playlistId = '';
+        let extractedTitle = playlistName || '';
 
-        if (qqMatch) {
-          source = 'tx';
-          playlistId = qqMatch[1];
-          playlistName = playlistName || `QQ音乐歌单 (${playlistId})`;
-        } else if (wyMatch) {
-          source = 'wy';
-          playlistId = wyMatch[1];
-          playlistName = playlistName || `网易云歌单 (${playlistId})`;
-        } else if (kgMatch) {
-          source = 'kg';
-          playlistId = kgMatch[1];
-          playlistName = playlistName || `酷狗歌单 (${playlistId})`;
+        // Extract title from bracket or share text, e.g. 「生疏丶丶喜欢的音乐」 or 分享歌单: 生疏丶丶喜欢的音乐
+        const bracketMatch = content.match(/[「【『]([^」】』]+)[」】』]/);
+        if (bracketMatch) {
+          extractedTitle = extractedTitle || bracketMatch[1].trim();
         } else {
-          throw new Error('未识别出支持的歌单分享链接（支持 QQ音乐 / 网易云 / 酷狗）');
+          const shareTitleMatch = content.match(/分享歌单[:：]\s*([^\s]+)/);
+          if (shareTitleMatch) {
+            extractedTitle = extractedTitle || shareTitleMatch[1].trim();
+          }
         }
 
-        showImportStatus('正在获取在线歌曲...', `从 ${source.toUpperCase()} 平台检索歌单曲目`);
-        if (window.MusicAPI && typeof window.MusicAPI.getPlaylistDetail === 'function') {
-          const res = await window.MusicAPI.getPlaylistDetail(playlistId, source);
-          if (res && res.items && res.items.length > 0) {
-            playlistName = res.title || playlistName;
-            songItems = res.items;
-          } else {
-            throw new Error('未能从当前音源插件获取到该网络歌单的歌曲，请检查网络或音源插件状态');
+        // Identify Platform
+        if (/163\.com|126\.net|163cn\.tv|网易云/i.test(content)) {
+          source = 'wy';
+        } else if (/qq\.com|tencent|QQ音乐/i.test(content)) {
+          source = 'tx';
+        } else if (/kugou\.com|酷狗/i.test(content)) {
+          source = 'kg';
+        }
+
+        // Extract numeric / alphanumeric ID
+        if (source === 'wy') {
+          const m = content.match(/(?:playlist\?id=|playlist\/|[?&]id=)(\d{5,14})/);
+          if (m) playlistId = m[1];
+        } else if (source === 'tx') {
+          const m = content.match(/(?:playlist\/|taoge\/|[?&]id=|[?&]disstid=)(\d{6,14})/);
+          if (m) playlistId = m[1];
+        } else if (source === 'kg') {
+          const m = content.match(/(?:specialid=|special\/song\?specialid=|zlist\/|songlist\/)(\d{5,14})/);
+          if (m) playlistId = m[1];
+        }
+
+        // If ID not found directly, follow shortlink redirect if an HTTP link exists
+        if (!playlistId && (content.includes('http://') || content.includes('https://'))) {
+          const urlMatch = content.match(/https?:\/\/[^\s"'<>]+/i);
+          if (urlMatch && window.nativeHttpFetch) {
+            showImportStatus('正在解析重定向短链...', '正在请求短链接以获取目标歌单真实地址');
+            try {
+              const resp = await window.nativeHttpFetch(urlMatch[0], { method: 'GET' });
+              const finalUrl = resp.url || (resp.headers && resp.headers['x-final-url']) || '';
+              const combined = `${finalUrl} ${resp.headers?.location || ''} ${resp.raw || ''}`;
+
+              if (!source) {
+                if (/163\.com|126\.net|163cn\.tv|网易云/i.test(combined)) source = 'wy';
+                else if (/qq\.com|tencent|QQ音乐/i.test(combined)) source = 'tx';
+                else if (/kugou\.com|酷狗/i.test(combined)) source = 'kg';
+              }
+
+              const m = combined.match(/(?:playlist\?id=|playlist\/|[?&]id=|[?&]disstid=|specialid=)(\d{5,14})/);
+              if (m) playlistId = m[1];
+            } catch (err) {
+              console.warn('[Import] Shortlink redirect error:', err);
+            }
           }
+        }
+
+        // Generic fallback for pure numeric ID or unidentified URL with ?id=
+        if (!playlistId) {
+          const numMatch = content.trim().match(/^(\d{5,14})$/);
+          if (numMatch) {
+            playlistId = numMatch[1];
+            if (!source) source = 'wy';
+          } else {
+            const genericIdMatch = content.match(/[?&]id=(\d{5,14})/);
+            if (genericIdMatch) {
+              playlistId = genericIdMatch[1];
+              if (!source) source = 'wy';
+            }
+          }
+        }
+
+        if (!playlistId) {
+          throw new Error('未识别出有效的歌单编号（支持 网易云音乐 / QQ音乐 / 酷狗音乐 的歌单链接与分享文本）');
+        }
+
+        if (!source) source = 'wy';
+
+        const platformLabels = { wy: '网易云音乐', tx: 'QQ音乐', kg: '酷狗音乐' };
+        const platformLabel = platformLabels[source] || source.toUpperCase();
+        showImportStatus('正在检索歌单曲目...', `已识别 ${platformLabel} (歌单ID: ${playlistId})，正在读取数据`);
+
+        let res = null;
+        if (window.MusicAPI && typeof window.MusicAPI.getPlaylistDetail === 'function') {
+          try {
+            res = await window.MusicAPI.getPlaylistDetail(playlistId, source);
+          } catch (e) {
+            console.warn('[Import] MusicAPI.getPlaylistDetail error, falling back:', e);
+          }
+        }
+
+        if (res && res.items && res.items.length > 0) {
+          playlistName = extractedTitle || res.title || `${platformLabel}歌单 (${playlistId})`;
+          songItems = res.items;
         } else {
-          throw new Error('当前音源未初始化，无法在线获取网络歌单曲目');
+          throw new Error(`未能获取到 ${platformLabel} 歌单中的歌曲，请确认网络连接及歌单是否为公开歌单`);
         }
       }
       // Case 5: Plain Text Song List (one song per line, e.g. "歌名 - 歌手")
@@ -4613,19 +4679,22 @@
     const plTitle = name || ('导入歌单 - ' + new Date().toISOString().slice(0, 10));
     const firstArtwork = tracks.find(t => t.artworkUrl)?.artworkUrl || '';
 
+    const prov = tracks[0]?.ref?.providerId;
+    const provName = prov === 'wy' ? '网易云' : (prov === 'tx' ? 'QQ音乐' : (prov === 'kg' ? '酷狗' : '本地导入'));
+
     const newPlaylist = {
       ref: {
         pluginId: 'ceru-music-importer',
-        providerId: tracks[0]?.ref?.providerId || 'tx',
+        providerId: prov || 'tx',
         kind: 'playlist',
         id: plId
       },
       title: plTitle,
-      author: '本地导入',
-      subtitle: `${tracks.length} 首歌曲 • 澜音/CeruMusic`,
+      author: provName,
+      subtitle: `${tracks.length} 首歌曲 • ${provName}`,
       artworkUrl: firstArtwork,
       playlist: {
-        author: '本地导入',
+        author: provName,
         artworkUrl: firstArtwork,
         trackCount: tracks.length
       },
