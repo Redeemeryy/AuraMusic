@@ -126,13 +126,13 @@ class MusicService : MediaBrowserServiceCompat() {
         const val CHANNEL_ID = "jelly_audio_playback_v2"
         const val NOTIFICATION_ID = 1001
 
-        const val ACTION_PLAY = "com.salt.music.ACTION_PLAY"
-        const val ACTION_PAUSE = "com.salt.music.ACTION_PAUSE"
-        const val ACTION_PREV = "com.salt.music.ACTION_PREV"
-        const val ACTION_NEXT = "com.salt.music.ACTION_NEXT"
-        const val ACTION_FAV = "com.salt.music.ACTION_FAV"
-        const val ACTION_LYRIC = "com.salt.music.ACTION_LYRIC"
-        const val ACTION_STOP = "com.salt.music.ACTION_STOP"
+        const val ACTION_PLAY = "com.auramusic.app.ACTION_PLAY"
+        const val ACTION_PAUSE = "com.auramusic.app.ACTION_PAUSE"
+        const val ACTION_PREV = "com.auramusic.app.ACTION_PREV"
+        const val ACTION_NEXT = "com.auramusic.app.ACTION_NEXT"
+        const val ACTION_FAV = "com.auramusic.app.ACTION_FAV"
+        const val ACTION_LYRIC = "com.auramusic.app.ACTION_LYRIC"
+        const val ACTION_STOP = "com.auramusic.app.ACTION_STOP"
     }
 
     inner class LocalBinder : Binder() {

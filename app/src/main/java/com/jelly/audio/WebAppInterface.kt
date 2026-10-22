@@ -182,7 +182,7 @@ class WebAppInterface(private val activity: MainActivity) {
             }
             json.toString()
         } catch (e: Exception) {
-            "{\"versionName\":\"1.1.1\",\"versionCode\":3}"
+            "{\"versionName\":\"1.1.2\",\"versionCode\":4}"
         }
     }
 
