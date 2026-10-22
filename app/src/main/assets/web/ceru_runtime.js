@@ -505,6 +505,38 @@ if (!Uint8Array.prototype.originalToString) {
   };
   globalThis.__ceruRequire = window.__ceruRequire;
 
+  // CeruMusic NoticeCenter implementation for notification & update events
+  const handlePluginNoticeEvent = (type, data) => {
+    console.log('[NoticeCenter] Event received:', type, data);
+    if (type === 'update' || data?.type === 'update' || data?.url || data?.updateUrl) {
+      const updateData = data?.data || data || {};
+      const notice = {
+        type: 'update',
+        dialogType: 'update',
+        title: updateData.title || '音源插件更新',
+        pluginName: updateData.pluginInfo?.name || window.MusicAPI?.manifest?.name || '当前音源',
+        currentVersion: window.MusicAPI?.manifest?.version || '未知',
+        newVersion: updateData.version || '最新版本',
+        updateUrl: updateData.url || updateData.updateUrl,
+        message: updateData.message || updateData.content || updateData.updateMsg || '发现音源新版本，是否立即更新？',
+        notes: updateData.updateMsg || updateData.notes || updateData.content || ''
+      };
+      if (typeof window.showPluginNoticeDialog === 'function') {
+        window.showPluginNoticeDialog(notice);
+      }
+    } else {
+      const msg = data?.message || data?.content || (typeof data === 'string' ? data : '');
+      if (msg && typeof window.toast === 'function') {
+        window.toast(msg);
+      }
+    }
+  };
+
+  window.NoticeCenter = handlePluginNoticeEvent;
+  globalThis.NoticeCenter = handlePluginNoticeEvent;
+  window.cerumusic = { NoticeCenter: handlePluginNoticeEvent };
+  globalThis.cerumusic = window.cerumusic;
+
   // High-level MusicAPI manager
   const registeredProviders = new Map();
   const registeredActions = new Map();
@@ -527,10 +559,11 @@ if (!Uint8Array.prototype.originalToString) {
       registeredProviders.clear();
       registeredActions.clear();
 
+      const pluginConfig = { ...(manifest.config || {}), get: async () => manifest.config };
       const ctx = {
-        plugin: { id: manifest.id, version: manifest.version, manifest },
+        plugin: { id: manifest.id, version: manifest.version, name: manifest.name, manifest },
         host: { apiVersion: '2.0.0', mode: 'production' },
-        config: { get: async () => manifest.config },
+        config: pluginConfig,
         effects: { add: () => {} },
         permissions: {
           query: async () => ({ status: 'granted' }),
@@ -538,8 +571,45 @@ if (!Uint8Array.prototype.originalToString) {
           getGranted: async () => []
         },
         playback: { failure: (err) => ({ ok: false, error: err }) },
-        ui: { toast: async () => {}, playlistImport: { open: async () => {} } },
-        log: { debug: () => {}, info: console.log, warn: console.warn, error: console.error },
+        ui: {
+          toast: async (opts) => {
+            if (typeof window.toast === 'function') {
+              window.toast(opts?.message || String(opts));
+            }
+          },
+          pluginUpdate: {
+            request: async (data) => {
+              console.log('[CeruRuntime] Plugin update requested via ctx.ui.pluginUpdate.request:', data);
+              const notice = {
+                type: 'update',
+                dialogType: 'update',
+                title: '音源插件更新',
+                pluginName: manifest.name || '当前音源',
+                currentVersion: manifest.version || '未知',
+                newVersion: data.version || '最新版本',
+                updateUrl: data.url,
+                message: data.notes || `音源插件有新版本可用，是否立即更新？`,
+                notes: data.notes || '',
+                manifest: manifest
+              };
+              if (typeof window.showPluginNoticeDialog === 'function') {
+                window.showPluginNoticeDialog(notice);
+              }
+              return { accepted: true, updated: false, queued: true };
+            }
+          },
+          dialogs: {
+            confirm: async (opts) => confirm(opts.message || opts.title),
+            alert: async (opts) => alert(opts.message || opts.title)
+          },
+          playlistImport: { open: async () => {} }
+        },
+        log: {
+          debug: (...args) => console.debug('[CeruPlugin]', ...args),
+          info: (...args) => console.log('[CeruPlugin]', ...args),
+          warn: (...args) => console.warn('[CeruPlugin]', ...args),
+          error: (...args) => console.error('[CeruPlugin]', ...args)
+        },
         lyricConverters: { register: () => () => {} },
         playlistImporters: { register: () => () => {} },
         providers: {

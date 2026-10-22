@@ -227,6 +227,21 @@
     btnOpenUpdateUrl: document.getElementById('btnOpenUpdateUrl'),
     btnOpenUpdateUrlText: document.getElementById('btnOpenUpdateUrlText'),
 
+    pluginNoticeOverlay: document.getElementById('pluginNoticeOverlay'),
+    pluginNoticeCard: document.getElementById('pluginNoticeCard'),
+    pluginNoticeIcon: document.getElementById('pluginNoticeIcon'),
+    pluginNoticeTitle: document.getElementById('pluginNoticeTitle'),
+    pluginNoticeSubtitle: document.getElementById('pluginNoticeSubtitle'),
+    pluginNoticeCurrentVer: document.getElementById('pluginNoticeCurrentVer'),
+    pluginNoticeNewVer: document.getElementById('pluginNoticeNewVer'),
+    pluginNoticeMsg: document.getElementById('pluginNoticeMsg'),
+    pluginNoticeProgressCard: document.getElementById('pluginNoticeProgressCard'),
+    pluginNoticeProgressText: document.getElementById('pluginNoticeProgressText'),
+    pluginNoticeActionBtns: document.getElementById('pluginNoticeActionBtns'),
+    btnCancelPluginUpdate: document.getElementById('btnCancelPluginUpdate'),
+    btnConfirmPluginUpdate: document.getElementById('btnConfirmPluginUpdate'),
+    btnOpenPluginUpdateBrowser: document.getElementById('btnOpenPluginUpdateBrowser'),
+
     inputPluginFile: document.getElementById('inputPluginFile'),
     btnImportFromFile: document.getElementById('btnImportFromFile'),
     inputPluginUrl: document.getElementById('inputPluginUrl'),
@@ -1854,6 +1869,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (el.pluginNoticeOverlay && !el.pluginNoticeOverlay.classList.contains('pointer-events-none')) {
+      closePluginNoticeDialog();
+      return true;
+    }
     if (el.importPlaylistOverlay && !el.importPlaylistOverlay.classList.contains('translate-y-full')) {
       closeImportPlaylistModal();
       return true;
@@ -3047,32 +3066,277 @@
     el.btnDiscoverOpenPlugin.addEventListener('click', openPluginModal);
   }
 
-  // Check Plugin Update
-  if (el.btnCheckPluginUpdate) {
-    el.btnCheckPluginUpdate.addEventListener('click', async () => {
-      toast('正在检测音源状态与更新...');
-      el.btnCheckPluginUpdate.disabled = true;
+  // ==========================================
+  // CeruMusic Plugin Notice & Live Update System
+  // ==========================================
+  let activePluginNotice = null;
+  const seenPluginUpdateVersions = new Set();
+
+  function showPluginNoticeDialog(noticeData) {
+    if (!noticeData || !el.pluginNoticeOverlay) return;
+    activePluginNotice = noticeData;
+
+    // Avoid duplicate popups if user dismissed this specific version in current session
+    const updateKey = (noticeData.pluginName || '') + '_' + (noticeData.newVersion || noticeData.updateUrl);
+    if (noticeData.isAuto && seenPluginUpdateVersions.has(updateKey)) {
+      return;
+    }
+
+    if (el.pluginNoticeTitle) {
+      el.pluginNoticeTitle.textContent = noticeData.title || '音源插件更新';
+    }
+    if (el.pluginNoticeSubtitle) {
+      el.pluginNoticeSubtitle.textContent = noticeData.pluginName || '聆澜音源';
+    }
+    if (el.pluginNoticeCurrentVer) {
+      el.pluginNoticeCurrentVer.textContent = noticeData.currentVersion || '1.0.0';
+    }
+    if (el.pluginNoticeNewVer) {
+      el.pluginNoticeNewVer.textContent = noticeData.newVersion || '最新版本';
+    }
+    if (el.pluginNoticeMsg) {
+      el.pluginNoticeMsg.textContent = noticeData.message || noticeData.notes || '发现新版本音源，建议更新以获得更佳解析效果。';
+    }
+
+    // Reset progress and buttons
+    if (el.pluginNoticeProgressCard) el.pluginNoticeProgressCard.classList.add('hidden');
+    if (el.pluginNoticeActionBtns) el.pluginNoticeActionBtns.classList.remove('hidden');
+    if (el.btnOpenPluginUpdateBrowser) el.btnOpenPluginUpdateBrowser.classList.add('hidden');
+    if (el.btnConfirmPluginUpdate) {
+      el.btnConfirmPluginUpdate.disabled = false;
+      el.btnConfirmPluginUpdate.innerHTML = '<span class="material-symbols-outlined text-[18px]">cloud_download</span><span>立即更新</span>';
+    }
+
+    // Show modal with animation
+    el.pluginNoticeOverlay.classList.remove('pointer-events-none', 'opacity-0');
+    el.pluginNoticeOverlay.classList.add('opacity-100');
+    if (el.pluginNoticeCard) {
+      el.pluginNoticeCard.classList.remove('scale-95');
+      el.pluginNoticeCard.classList.add('scale-100');
+    }
+  }
+
+  function closePluginNoticeDialog() {
+    if (!el.pluginNoticeOverlay) return;
+    if (activePluginNotice) {
+      const updateKey = (activePluginNotice.pluginName || '') + '_' + (activePluginNotice.newVersion || activePluginNotice.updateUrl);
+      seenPluginUpdateVersions.add(updateKey);
+    }
+    el.pluginNoticeOverlay.classList.remove('opacity-100');
+    el.pluginNoticeOverlay.classList.add('opacity-0', 'pointer-events-none');
+    if (el.pluginNoticeCard) {
+      el.pluginNoticeCard.classList.remove('scale-100');
+      el.pluginNoticeCard.classList.add('scale-95');
+    }
+  }
+
+  window.showPluginNoticeDialog = showPluginNoticeDialog;
+  window.closePluginNoticeDialog = closePluginNoticeDialog;
+
+  async function performPluginUpdate(url, newVersion) {
+    if (!url) {
+      toast('更新地址缺失，无法下载');
+      return;
+    }
+
+    if (el.pluginNoticeProgressCard) {
+      el.pluginNoticeProgressCard.classList.remove('hidden');
+    }
+    if (el.pluginNoticeProgressText) {
+      el.pluginNoticeProgressText.textContent = '正在下载新版本音源脚本...';
+    }
+    if (el.btnConfirmPluginUpdate) {
+      el.btnConfirmPluginUpdate.disabled = true;
+      el.btnConfirmPluginUpdate.innerHTML = '<div class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div><span>更新中...</span>';
+    }
+
+    try {
+      // Download updated script using nativeHttpFetch (handles redirects and TLS cleanly)
+      const res = await nativeHttpFetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'CeruMusic-Host/2.0.0 AuraMusic/1.0.0'
+        }
+      });
+
+      if (res.status !== 200 || !res.body) {
+        throw new Error(`下载失败 (HTTP ${res.status || 0})`);
+      }
+
+      const scriptContent = typeof res.body === 'string' ? res.body : JSON.stringify(res.body);
+      if (scriptContent.length < 50) {
+        throw new Error('下载的内容不是有效的 JavaScript 插件文件');
+      }
+
+      if (el.pluginNoticeProgressText) {
+        el.pluginNoticeProgressText.textContent = '正在载入并激活新音源...';
+      }
+
+      // Evaluate and apply new plugin code
+      await evalPluginCode(scriptContent, false, url);
+
+      toast(`🎉 音源插件已成功更新至 ${newVersion || '最新版本'}！`);
+
+      // Update plugin manager status card if visible
+      if (el.pluginUpdateCard) {
+        el.pluginUpdateCard.classList.remove('hidden');
+        el.pluginUpdateStatusText.textContent = `已是最新版本 (${newVersion || '最新版'})`;
+        el.pluginUpdateNotes.textContent = '刚刚完成自动更新，新版音源已加载就绪。';
+      }
+
+      setTimeout(() => {
+        closePluginNoticeDialog();
+      }, 600);
+    } catch (err) {
+      console.error('[PluginUpdate] Update failed:', err);
+      toast('自动更新失败: ' + err.message);
+      if (el.pluginNoticeProgressText) {
+        el.pluginNoticeProgressText.textContent = '自动更新失败：' + (err.message || '网络连接超时');
+      }
+      if (el.btnOpenPluginUpdateBrowser) {
+        el.btnOpenPluginUpdateBrowser.classList.remove('hidden');
+      }
+      if (el.btnConfirmPluginUpdate) {
+        el.btnConfirmPluginUpdate.disabled = false;
+        el.btnConfirmPluginUpdate.innerHTML = '<span class="material-symbols-outlined text-[18px]">refresh</span><span>重试更新</span>';
+      }
+    }
+  }
+
+  async function checkActivePluginUpdate(isManual = false) {
+    let meta = null;
+    try { meta = JSON.parse(localStorage.getItem('jelly_custom_plugin_meta') || '{}'); } catch (e) {}
+    const manifest = window.MusicAPI?.manifest;
+    const config = manifest?.config || {};
+
+    if (!manifest && !meta.name) {
+      if (isManual) toast('当前未安装音源插件，请先导入');
+      return;
+    }
+
+    const currentVer = manifest?.version || meta.version || '1.0.0';
+
+    // 1. CeruMusic / CR2 official update API check
+    if (config.apiUrl && (config.apiKey || config.updateMd5)) {
+      if (isManual) toast('正在向官方音源节点检测更新...');
       try {
-        let meta = null;
-        try { meta = JSON.parse(localStorage.getItem('jelly_custom_plugin_meta') || '{}'); } catch (e) {}
-        const updateUrl = meta?.updateUrl || meta?.homepage;
-        if (el.pluginUpdateCard) {
-          el.pluginUpdateCard.classList.remove('hidden');
-          if (updateUrl) {
-            el.pluginUpdateStatusText.textContent = '已获取音源发布/更新主页';
-            el.pluginUpdateNotes.textContent = '此音源配置了外部更新链接，可点击下方按钮直接跳转手机浏览器查看最新版本。';
-            if (el.btnOpenUpdateUrl) el.btnOpenUpdateUrl.classList.remove('hidden');
-          } else {
-            el.pluginUpdateStatusText.textContent = '当前音源运行正常';
-            el.pluginUpdateNotes.textContent = '核心解析规则均已就绪，未在脚本中发现独立外部更新链接。';
-            if (el.btnOpenUpdateUrl) el.btnOpenUpdateUrl.classList.add('hidden');
+        const base = config.apiUrl.replace(/\/$/, '');
+        const updateCheckUrl = `${base}/script?checkUpdate=${encodeURIComponent(config.updateMd5 || currentVer)}&key=${encodeURIComponent(config.apiKey || '')}&type=${encodeURIComponent(config.type || 'cr')}&manifestVersion=2`;
+
+        const res = await nativeHttpFetch(updateCheckUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': `CeruMusic-Plugin/${currentVer}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const respObj = typeof res.body === 'string' ? JSON.parse(res.body) : res.body;
+        const updateData = respObj?.data;
+
+        if (res.status === 200 && updateData && updateData.updateUrl) {
+          const newVer = updateData.version || '最新版本';
+          const cleanNew = newVer.replace(/^v/, '').trim();
+          const cleanCurrent = currentVer.replace(/^v/, '').trim();
+
+          if (cleanNew !== cleanCurrent) {
+            showPluginNoticeDialog({
+              type: 'update',
+              dialogType: 'update',
+              title: '发现音源新版本',
+              pluginName: manifest?.name || '聆澜音源',
+              currentVersion: currentVer,
+              newVersion: newVer,
+              updateUrl: updateData.updateUrl,
+              message: updateData.updateMsg || '官方音源发布了新版本，建议立即更新以获得更稳定的音质解析与修复。',
+              notes: updateData.updateMsg || '',
+              isAuto: !isManual
+            });
+            return;
           }
         }
-        toast('音源状态检测完成');
+
+        if (isManual) {
+          toast(`当前音源已是最新版本 (${currentVer})`);
+        }
+        if (el.pluginUpdateCard) {
+          el.pluginUpdateCard.classList.remove('hidden');
+          el.pluginUpdateStatusText.textContent = `已是最新版本 (${currentVer})`;
+          el.pluginUpdateNotes.textContent = '核心解析规则与官方音源保持同步，运行状态良好。';
+        }
+        return;
+      } catch (err) {
+        console.warn('[CheckPluginUpdate] Error:', err);
+        if (isManual) toast('检查更新失败: ' + err.message);
+      }
+    }
+
+    // 2. Generic LX / raw url update check
+    const updateUrl = meta.updateUrl || meta.homepage;
+    if (updateUrl && updateUrl.startsWith('http')) {
+      if (isManual) toast('正在检测音源主页...');
+      try {
+        const res = await nativeHttpFetch(updateUrl, { method: 'GET' });
+        if (res.status === 200 && typeof res.body === 'string') {
+          const verMatch = res.body.match(/version\s*:\s*['"]([^'"]+)['"]/);
+          if (verMatch && verMatch[1] && verMatch[1] !== currentVer) {
+            showPluginNoticeDialog({
+              type: 'update',
+              dialogType: 'update',
+              title: '发现音源新版本',
+              pluginName: meta.name || '自定义音源',
+              currentVersion: currentVer,
+              newVersion: verMatch[1],
+              updateUrl: updateUrl,
+              message: '检测到远程音源脚本已发布新版本，是否立即更新？',
+              isAuto: !isManual
+            });
+            return;
+          }
+        }
+        if (isManual) toast(`当前音源已是最新版本 (${currentVer})`);
       } catch (e) {
-        toast('检测音源失败: ' + e.message);
+        if (isManual) toast('检查音源更新失败: ' + e.message);
+      }
+    } else {
+      if (isManual) toast(`当前音源运行正常 (${currentVer})`);
+    }
+  }
+
+  window.checkActivePluginUpdate = checkActivePluginUpdate;
+
+  // Check Plugin Update Button
+  if (el.btnCheckPluginUpdate) {
+    el.btnCheckPluginUpdate.addEventListener('click', async () => {
+      el.btnCheckPluginUpdate.disabled = true;
+      try {
+        await checkActivePluginUpdate(true);
       } finally {
         el.btnCheckPluginUpdate.disabled = false;
+      }
+    });
+  }
+
+  if (el.btnCancelPluginUpdate) {
+    el.btnCancelPluginUpdate.addEventListener('click', closePluginNoticeDialog);
+  }
+
+  if (el.btnConfirmPluginUpdate) {
+    el.btnConfirmPluginUpdate.addEventListener('click', () => {
+      if (activePluginNotice && activePluginNotice.updateUrl) {
+        performPluginUpdate(activePluginNotice.updateUrl, activePluginNotice.newVersion);
+      }
+    });
+  }
+
+  if (el.btnOpenPluginUpdateBrowser) {
+    el.btnOpenPluginUpdateBrowser.addEventListener('click', () => {
+      if (activePluginNotice && activePluginNotice.updateUrl) {
+        if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+          window.AndroidBridge.openExternalUrl(activePluginNotice.updateUrl);
+        } else {
+          window.open(activePluginNotice.updateUrl, '_blank');
+        }
       }
     });
   }
@@ -4454,6 +4718,10 @@
       // Load rank hot tracks, playlists and daily recommendations if plugin is initialized
       if (window.MusicAPI && window.MusicAPI.initialized) {
         await loadDiscoverContent();
+        // Check for sound source plugin updates automatically in background (matching CeruMusic logic)
+        setTimeout(() => {
+          checkActivePluginUpdate(false);
+        }, 1200);
       }
     } catch (e) {
       console.error('Engine init error:', e);
