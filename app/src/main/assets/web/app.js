@@ -150,6 +150,8 @@
     btnOpenImportPlaylist: document.getElementById('btnOpenImportPlaylist'),
     importPlaylistOverlay: document.getElementById('importPlaylistOverlay'),
     btnCloseImportPlaylist: document.getElementById('btnCloseImportPlaylist'),
+    btnImportFromClipboard: document.getElementById('btnImportFromClipboard'),
+    btnPasteToTextarea: document.getElementById('btnPasteToTextarea'),
     btnChoosePlaylistFile: document.getElementById('btnChoosePlaylistFile'),
     playlistFileInput: document.getElementById('playlistFileInput'),
     btnClearImportText: document.getElementById('btnClearImportText'),
@@ -1014,11 +1016,11 @@
     if (el.miniQualityBadge) {
       el.miniQualityBadge.textContent = qInfo.short;
       if (qInfo.short === 'Hi-Res') {
-        el.miniQualityBadge.className = 'bg-amber-500/15 text-amber-700 border border-amber-500/30 text-[9px] font-bold px-1 rounded uppercase';
+        el.miniQualityBadge.className = 'bg-amber-500/15 text-amber-700 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 leading-none';
       } else if (qInfo.isLossless) {
-        el.miniQualityBadge.className = 'bg-secondary-container/40 text-secondary text-[9px] font-bold px-1 rounded uppercase';
+        el.miniQualityBadge.className = 'bg-secondary-container/40 text-secondary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 leading-none';
       } else {
-        el.miniQualityBadge.className = 'bg-primary/10 text-primary text-[9px] font-bold px-1 rounded uppercase';
+        el.miniQualityBadge.className = 'bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0 leading-none';
       }
     }
 
@@ -2978,7 +2980,8 @@
       el.headerSourceDot.className = isInit ? 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse' : 'w-2 h-2 rounded-full bg-amber-400';
     }
     if (el.headerSourceText) {
-      el.headerSourceText.textContent = isInit ? name : '未配置音源';
+      const shortName = name.replace(/\[.*?\]|\(.*?\)/g, '').trim() || name;
+      el.headerSourceText.textContent = isInit ? shortName : '未配置音源';
     }
 
     // 2. Settings Card
@@ -3064,11 +3067,15 @@
     if (!el.pluginModalOverlay) return;
     syncPluginUI();
     el.pluginModalOverlay.classList.remove('translate-y-full');
+    if (el.miniPlayer) el.miniPlayer.classList.add('in-subpage');
   }
 
   function closePluginModal() {
     if (!el.pluginModalOverlay) return;
     el.pluginModalOverlay.classList.add('translate-y-full');
+    if (el.miniPlayer && (!el.playlistDetailOverlay || el.playlistDetailOverlay.classList.contains('translate-y-full')) && (!el.importPlaylistOverlay || el.importPlaylistOverlay.classList.contains('translate-y-full'))) {
+      el.miniPlayer.classList.remove('in-subpage');
+    }
   }
 
   if (el.btnOpenPluginManager) {
@@ -3410,10 +3417,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.3';
+        return info.versionName || '1.1.4';
       }
     } catch (e) {}
-    return '1.1.3';
+    return '1.1.4';
   }
 
   function showAppUpdateDialog(release, currentVer) {
@@ -4456,7 +4463,7 @@
   function closeImportPlaylistModal() {
     if (!el.importPlaylistOverlay) return;
     el.importPlaylistOverlay.classList.add('translate-y-full');
-    if (el.miniPlayer && (!el.playlistDetailOverlay || el.playlistDetailOverlay.classList.contains('translate-y-full'))) {
+    if (el.miniPlayer && (!el.playlistDetailOverlay || el.playlistDetailOverlay.classList.contains('translate-y-full')) && (!el.pluginModalOverlay || el.pluginModalOverlay.classList.contains('translate-y-full'))) {
       el.miniPlayer.classList.remove('in-subpage');
     }
   }
@@ -4758,6 +4765,79 @@
     }
   }
 
+  // Read system clipboard text safely without uncaught permission errors
+  async function getSystemClipboardText() {
+    // 1. AndroidBridge native clipboard interface (seamless & reliable on Android foreground)
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getClipboardText === 'function') {
+        const clip = window.AndroidBridge.getClipboardText();
+        if (clip && typeof clip === 'string' && clip.trim().length > 0) {
+          return clip.trim();
+        }
+      }
+    } catch (e) {
+      console.warn('Native getClipboardText error:', e);
+    }
+
+    // 2. Standard navigator.clipboard API
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        const text = await navigator.clipboard.readText();
+        if (text && typeof text === 'string' && text.trim().length > 0) {
+          return text.trim();
+        }
+      }
+    } catch (e) {
+      console.warn('navigator.clipboard.readText error:', e);
+    }
+
+    return '';
+  }
+
+  // Handle Smart One-Click Clipboard Import
+  async function handleClipboardImport() {
+    showImportStatus('正在读取剪贴板...', '请稍候');
+    try {
+      const clipText = await getSystemClipboardText();
+      if (!clipText || !clipText.trim()) {
+        hideImportStatus();
+        toast('剪切板未检测到有效内容，请在下方文本框中手动粘贴');
+        if (el.textareaImportContent) {
+          el.textareaImportContent.focus();
+          el.textareaImportContent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+
+      if (el.textareaImportContent) {
+        el.textareaImportContent.value = clipText.trim();
+      }
+
+      const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
+      showImportStatus('正在解析剪贴板内容...', '正在分析链接与歌曲数据');
+      const result = await parsePlaylistContent(clipText.trim(), customName);
+      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
+
+      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
+      closeImportPlaylistModal();
+
+      openPlaylistDetail(savedPl.ref, {
+        title: savedPl.title,
+        author: savedPl.author,
+        artworkUrl: savedPl.artworkUrl,
+        trackCount: savedPl.tracks.length,
+        tracks: savedPl.tracks
+      });
+    } catch (err) {
+      console.error('Clipboard import error:', err);
+      showImportStatus('导入失败', err.message || '剪切板内容解析失败', true);
+      toast('解析失败: ' + (err.message || '内容格式不匹配'));
+      if (el.textareaImportContent) {
+        el.textareaImportContent.focus();
+      }
+    }
+  }
+
   // Handle Textarea Text Import
   async function handleTextImport() {
     const content = el.textareaImportContent ? el.textareaImportContent.value.trim() : '';
@@ -4869,6 +4949,26 @@
   }
   if (el.btnCloseImportPlaylist) {
     el.btnCloseImportPlaylist.addEventListener('click', closeImportPlaylistModal);
+  }
+  if (el.btnImportFromClipboard) {
+    el.btnImportFromClipboard.addEventListener('click', handleClipboardImport);
+  }
+  if (el.btnPasteToTextarea && el.textareaImportContent) {
+    el.btnPasteToTextarea.addEventListener('click', async () => {
+      try {
+        const text = await getSystemClipboardText();
+        if (text) {
+          el.textareaImportContent.value = text;
+          toast('已粘贴剪切板内容');
+        } else {
+          toast('剪切板为空或无权限，请长按文本框手动粘贴');
+          el.textareaImportContent.focus();
+        }
+      } catch (e) {
+        toast('无法读取剪贴板，请长按文本框手动粘贴');
+        el.textareaImportContent.focus();
+      }
+    });
   }
   if (el.btnChoosePlaylistFile && el.playlistFileInput) {
     el.btnChoosePlaylistFile.addEventListener('click', () => el.playlistFileInput.click());

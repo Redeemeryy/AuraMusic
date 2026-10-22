@@ -48,19 +48,19 @@
   <div class="pointer-events-none fixed -bottom-16 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-sky-200/40 via-violet-200/30 to-emerald-200/30 blur-3xl opacity-60 -z-10"></div>
 
   <!-- Top App Header -->
-  <header class="fixed top-0 inset-x-0 z-30 pt-safe px-4 bg-white/40 backdrop-blur-md border-b border-white/60">
+  <header class="fixed top-0 inset-x-0 z-30 pt-safe px-4 bg-white/60 backdrop-blur-md border-b border-white/60 shadow-xs">
     <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto">
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl overflow-hidden shadow-md flex-shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-8 h-8 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
           <img src="logo.png" class="w-full h-full object-cover" alt="AuraMusic" />
         </div>
-        <span class="font-extrabold text-[18px] tracking-tight text-on-surface">AuraMusic</span>
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/40 text-secondary uppercase">灵音</span>
+        <span class="font-extrabold text-[17px] text-on-surface">AuraMusic</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">灵音</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button id="headerSourceBadge" class="jelly-glass px-2.5 py-1 rounded-full text-[11px] font-bold text-primary flex items-center gap-1 active-squish" title="音源插件管理">
-          <span id="headerSourceDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
-          <span id="headerSourceText">未配置音源</span>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button id="headerSourceBadge" class="jelly-glass px-2.5 py-1 rounded-full text-[11px] font-semibold text-primary flex items-center gap-1.5 active-squish max-w-[125px] shadow-2xs border border-primary/15" title="音源插件管理">
+          <span id="headerSourceDot" class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+          <span id="headerSourceText" class="truncate text-[11px] font-semibold text-on-surface">未配置音源</span>
         </button>
       </div>
     </div>
@@ -378,17 +378,21 @@
           </div>
         </div>
 
-        <!-- App Info & Version Checker -->
-        <div class="text-center py-2 flex flex-col items-center gap-1.5">
-          <div class="text-[12px] font-bold text-on-surface-variant flex items-center justify-center gap-1.5">
-            <span>AuraMusic Mobile</span>
-            <span>•</span>
-            <span id="appVersionText">v1.1.0</span>
-            <span id="appUpdateBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs">有新版</span>
+        <!-- App Info & Version Checker Card -->
+        <div class="jelly-glass rounded-3xl p-5 mb-8 flex flex-col items-center text-center gap-3.5 shadow-sm border border-white/80">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-secondary-container p-0.5 flex items-center justify-center shadow-sm">
+            <img src="logo.png" class="w-full h-full object-cover rounded-[14px]" alt="AuraMusic" />
           </div>
-          <div class="text-[11px] text-outline">灵音 • Powered by CeruMusic Engine & Android Media3</div>
-          <button id="btnCheckAppUpdate" class="mt-1 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[12px] font-bold flex items-center gap-1.5 active-squish shadow-xs border border-primary/20">
-            <span class="material-symbols-outlined text-[16px]">sync</span>
+          <div class="flex flex-col items-center gap-1">
+            <div class="flex items-center gap-2">
+              <span class="text-[15px] font-extrabold text-on-surface">AuraMusic 灵音</span>
+              <span id="appVersionText" class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold font-mono">v1.1.4</span>
+              <span id="appUpdateBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs animate-pulse">有新版</span>
+            </div>
+            <div class="text-[11px] text-outline font-medium">Powered by CeruMusic Engine & Android Media3</div>
+          </div>
+          <button id="btnCheckAppUpdate" class="w-full py-2.5 rounded-2xl bg-primary text-white text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active-squish">
+            <span class="material-symbols-outlined text-[18px]">sync</span>
             <span>检查软件版本更新</span>
           </button>
         </div>
@@ -398,35 +402,37 @@
   </main>
 
   <!-- Bottom Floating Mini Player -->
-  <aside id="miniPlayer" class="fixed inset-x-0 z-[50] px-4 pointer-events-none transition-all duration-300">
+  <aside id="miniPlayer" class="fixed inset-x-0 z-[50] px-3 pointer-events-none transition-all duration-300">
     <div class="max-w-md mx-auto pointer-events-auto">
-      <div class="jelly-glass rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-lg active-squish cursor-pointer" id="miniPlayerContent">
-        <div class="flex items-center justify-between gap-3">
+      <div class="jelly-glass rounded-2xl p-2.5 px-3 flex flex-col gap-1.5 shadow-lg active-squish cursor-pointer" id="miniPlayerContent">
+        <div class="flex items-center justify-between gap-2.5">
           <!-- Album Art with glowing ring -->
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-primary to-secondary-container p-0.5 flex-shrink-0 flex items-center justify-center shadow-sm relative overflow-hidden">
-            <img id="miniCover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop" class="w-full h-full rounded-[10px] object-cover" alt="Cover" />
+          <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-primary to-secondary-container p-0.5 flex-shrink-0 flex items-center justify-center shadow-sm relative overflow-hidden">
+            <img id="miniCover" src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&auto=format&fit=crop" class="w-full h-full rounded-[9px] object-cover" alt="Cover" />
           </div>
           <!-- Song Info -->
-          <div class="flex flex-col min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <span id="miniTitle" class="text-[14px] font-bold text-on-surface truncate">未在播放</span>
-              <span id="miniQualityBadge" class="bg-secondary-container/40 text-secondary text-[9px] font-bold px-1 rounded uppercase">FLAC</span>
+          <div class="flex flex-col min-w-0 flex-1 justify-center">
+            <!-- Row 1: Dedicated solely to Song Title for maximum width & no wrapping collision -->
+            <div class="min-w-0 flex-1">
+              <span id="miniTitle" class="text-[13.5px] font-bold text-on-surface truncate block min-w-0 leading-tight">未在播放</span>
             </div>
-            <div class="flex items-center gap-1">
-              <span id="miniArtist" class="text-[12px] text-on-surface-variant truncate">点击任意歌曲开始聆听</span>
-              <span class="text-[10px] text-outline font-medium" id="miniSourceTag">• 聆澜</span>
+            <!-- Row 2: Quality Pill + Artist Name -->
+            <div class="flex items-center gap-1.5 min-w-0 mt-0.5">
+              <span id="miniQualityBadge" class="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded leading-none flex-shrink-0">FLAC</span>
+              <span id="miniArtist" class="text-[11.5px] text-on-surface-variant truncate block min-w-0 flex-1 leading-tight">点击任意歌曲开始聆听</span>
+              <span id="miniSourceTag" class="hidden"></span>
             </div>
           </div>
-          <!-- Controls -->
-          <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
-            <button id="miniPrevBtn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant active:text-primary transition-colors">
-              <span class="material-symbols-outlined text-[20px]">skip_previous</span>
+          <!-- Compact Controls -->
+          <div class="flex items-center gap-0.5 flex-shrink-0" onclick="event.stopPropagation()">
+            <button id="miniPrevBtn" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant active:text-primary transition-colors" title="上一首">
+              <span class="material-symbols-outlined text-[19px]">skip_previous</span>
             </button>
-            <button id="miniPlayBtn" class="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-primary-container text-white flex items-center justify-center shadow-md active-squish">
-              <span class="material-symbols-outlined text-[22px]" id="miniPlayIcon">play_arrow</span>
+            <button id="miniPlayBtn" class="w-[38px] h-[38px] rounded-full bg-gradient-to-br from-primary to-primary-container text-white flex items-center justify-center shadow-md active-squish" title="播放/暂停">
+              <span class="material-symbols-outlined text-[20px]" id="miniPlayIcon">play_arrow</span>
             </button>
-            <button id="miniNextBtn" class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant active:text-primary transition-colors">
-              <span class="material-symbols-outlined text-[20px]">skip_next</span>
+            <button id="miniNextBtn" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant active:text-primary transition-colors" title="下一首">
+              <span class="material-symbols-outlined text-[19px]">skip_next</span>
             </button>
           </div>
         </div>
@@ -930,16 +936,36 @@
     </div>
 
     <!-- Scrollable Body -->
-    <div class="flex-1 overflow-y-auto px-4 py-4 max-w-md mx-auto w-full flex flex-col gap-4">
-      <!-- Mode 1: 粘贴链接 / 文本 / 密文导入 -->
+    <div class="flex-1 overflow-y-auto px-4 py-4 max-w-md mx-auto w-full flex flex-col gap-4 pb-20">
+      <!-- Mode 1: 智能剪切板一键导入 -->
+      <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3 border border-primary/20">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary to-secondary-container flex items-center justify-center text-white shadow-sm">
+            <span class="material-symbols-outlined text-[22px]">content_paste_go</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-[14px] font-bold text-on-surface">方式一：智能剪切板一键导入</h4>
+            <span class="text-[11px] text-outline truncate block">自动读取系统剪贴板中的分享链接或歌单代码</span>
+          </div>
+        </div>
+        <p class="text-[12px] text-on-surface-variant leading-relaxed">
+          复制网易云、QQ音乐、酷狗等平台的歌单分享链接或代码后，点击下方按钮即可一键读取并自动解析。
+        </p>
+        <button id="btnImportFromClipboard" class="h-11 px-4 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-md active-squish">
+          <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+          <span>读取剪贴板并智能解析</span>
+        </button>
+      </div>
+
+      <!-- Mode 2: 手动粘贴链接 / 文本 / 密文导入 -->
       <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
         <div class="flex items-center gap-2.5">
           <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-sm">
-            <span class="material-symbols-outlined text-[22px]">link</span>
+            <span class="material-symbols-outlined text-[22px]">edit_note</span>
           </div>
-          <div>
-            <h4 class="text-[14px] font-bold text-on-surface">粘贴链接 / 文本 / 密文</h4>
-            <span class="text-[11px] text-outline">支持网易云、QQ音乐、酷狗歌单分享链接或文本清单</span>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-[14px] font-bold text-on-surface">方式二：手动粘贴内容导入</h4>
+            <span class="text-[11px] text-outline truncate block">若剪切板无内容或系统受限，可在此手动粘贴</span>
           </div>
         </div>
 
@@ -951,7 +977,16 @@
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
             <label class="text-[12px] font-bold text-on-surface">歌单链接或歌曲文本</label>
-            <button id="btnClearImportText" type="button" class="text-[11px] text-primary font-medium hover:underline">清空输入</button>
+            <div class="flex items-center gap-3">
+              <button id="btnPasteToTextarea" type="button" class="text-[11px] text-primary font-bold hover:underline flex items-center gap-0.5 active-squish">
+                <span class="material-symbols-outlined text-[14px]">content_paste</span>
+                <span>粘贴剪切板</span>
+              </button>
+              <button id="btnClearImportText" type="button" class="text-[11px] text-outline font-medium hover:underline flex items-center gap-0.5 active-squish">
+                <span class="material-symbols-outlined text-[14px]">close</span>
+                <span>清空</span>
+              </button>
+            </div>
           </div>
           <textarea id="textareaImportContent" rows="5" placeholder="在此直接粘贴：&#10;1. 网易云 / QQ音乐 / 酷狗音乐 分享链接或分享文本;&#10;2. 纯文本歌曲清单 (每行一首: 晴天 - 周杰伦);&#10;3. 澜音导出的 AES 密文 (U2Fsd...) 或 JSON 歌单备份。" class="w-full jelly-glass rounded-xl p-3 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary resize-none font-mono"></textarea>
         </div>
@@ -962,22 +997,22 @@
         </button>
       </div>
 
-      <!-- Mode 2: 本地文件导入 (.cmpl, .cpl, .lxmc, .json) -->
+      <!-- Mode 3: 本地文件导入 (.cmpl, .cpl, .lxmc, .json) -->
       <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
         <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-white shadow-sm">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
             <span class="material-symbols-outlined text-[22px]">folder_open</span>
           </div>
-          <div>
-            <h4 class="text-[14px] font-bold text-on-surface">本地歌单文件导入</h4>
-            <span class="text-[11px] text-outline">支持 .cmpl (澜音加密压缩) / .cpl / .lxmc / .json</span>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-[14px] font-bold text-on-surface">方式三：本地歌单文件导入</h4>
+            <span class="text-[11px] text-outline truncate block">支持 .cmpl (澜音加密压缩) / .cpl / .lxmc / .json</span>
           </div>
         </div>
         <p class="text-[12px] text-on-surface-variant leading-relaxed">
           直接选取从 CeruMusic 或 洛雪音乐 (LX Music) 导出的歌单备份文件，自动解密还原全部歌曲。
         </p>
         <input type="file" id="playlistFileInput" accept=".cmpl,.cpl,.lxmc,.json,application/json,text/plain" style="display:none;" />
-        <button id="btnChoosePlaylistFile" class="h-11 px-4 rounded-2xl bg-primary text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm active-squish">
+        <button id="btnChoosePlaylistFile" class="h-11 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm active-squish">
           <span class="material-symbols-outlined text-[20px]">file_open</span>
           <span>选择歌单文件导入</span>
         </button>

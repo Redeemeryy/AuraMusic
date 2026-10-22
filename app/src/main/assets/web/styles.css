@@ -31,7 +31,11 @@ body, html {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", 'Plus Jakarta Sans', "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--surface);
   color: var(--on-surface);
   overscroll-behavior: none;
@@ -119,7 +123,7 @@ body, html {
   overflow-y: auto;
   overflow-x: hidden;
   padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px), 38px) + 58px) !important;
-  padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 24px) + 144px) !important;
+  padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 24px) + 215px) !important;
   display: none;
 }
 
@@ -472,7 +476,7 @@ body, html {
   /* 4. Main Content Views (发现 / 搜索 / 资料库 / 设置) */
   .view-container {
     padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px), 8px) + 50px) !important;
-    padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 8px) + 82px) !important;
+    padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 8px) + 120px) !important;
     padding-left: calc(max(var(--safe-left, 0px), env(safe-area-inset-left, 0px), 8px) + 84px) !important;
     padding-right: max(var(--safe-right, 0px), env(safe-area-inset-right, 0px), 24px) !important;
   }

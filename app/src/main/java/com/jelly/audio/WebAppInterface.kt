@@ -165,6 +165,30 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun getClipboardText(): String {
+        val future = java.util.concurrent.CompletableFuture<String>()
+        mainHandler.post {
+            try {
+                val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = clipboard.primaryClip
+                if (clip != null && clip.itemCount > 0) {
+                    val text = clip.getItemAt(0).coerceToText(activity)?.toString() ?: ""
+                    future.complete(text)
+                } else {
+                    future.complete("")
+                }
+            } catch (e: Exception) {
+                future.complete("")
+            }
+        }
+        return try {
+            future.get(1, TimeUnit.SECONDS)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    @JavascriptInterface
     fun updateFavoriteState(isFav: Boolean) {
         mainHandler.post {
             activity.musicService?.updateFavoriteState(isFav)
@@ -183,7 +207,7 @@ class WebAppInterface(private val activity: MainActivity) {
         return try {
             val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
             val json = JSONObject()
-            json.put("versionName", pInfo.versionName ?: "1.1.3")
+            json.put("versionName", pInfo.versionName ?: "1.1.4")
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 json.put("versionCode", pInfo.longVersionCode)
             } else {
@@ -191,7 +215,7 @@ class WebAppInterface(private val activity: MainActivity) {
             }
             json.toString()
         } catch (e: Exception) {
-            "{\"versionName\":\"1.1.3\",\"versionCode\":5}"
+            "{\"versionName\":\"1.1.4\",\"versionCode\":6}"
         }
     }
 
