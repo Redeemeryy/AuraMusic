@@ -63,16 +63,20 @@ if (!Uint8Array.prototype.originalToString) {
           req.reject(new Error(data.error));
         } else {
           let body = data.body;
+          if (data.isLargeBody && window.AndroidBridge && typeof window.AndroidBridge.getHttpResponseBody === 'function') {
+            body = window.AndroidBridge.getHttpResponseBody(data.requestId);
+          }
+          let parsedBody = body;
           try {
-            body = JSON.parse(data.body);
+            parsedBody = JSON.parse(body);
           } catch(e) {}
           const headers = data.headers || {};
           req.resolve({
             statusCode: data.status,
             status: data.status,
             headers: headers,
-            body: body,
-            raw: data.body,
+            body: parsedBody,
+            raw: body,
             url: data.url || headers['x-final-url'] || headers['X-Final-Url'] || ''
           });
         }

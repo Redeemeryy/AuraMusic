@@ -152,7 +152,7 @@
     btnCloseImportPlaylist: document.getElementById('btnCloseImportPlaylist'),
     btnChoosePlaylistFile: document.getElementById('btnChoosePlaylistFile'),
     playlistFileInput: document.getElementById('playlistFileInput'),
-    btnImportFromClipboard: document.getElementById('btnImportFromClipboard'),
+    btnClearImportText: document.getElementById('btnClearImportText'),
     inputImportPlaylistName: document.getElementById('inputImportPlaylistName'),
     textareaImportContent: document.getElementById('textareaImportContent'),
     btnConfirmTextImport: document.getElementById('btnConfirmTextImport'),
@@ -3169,19 +3169,25 @@
     }
 
     try {
-      // Download updated script using nativeHttpFetch (handles redirects and TLS cleanly)
-      const res = await nativeHttpFetch(url, {
+      // Download updated script using nativeHttpFetch with a 35s timeout guard
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('下载更新超时（35秒），请检查网络连接或稍后重试')), 35000)
+      );
+
+      const fetchPromise = nativeHttpFetch(url, {
         method: 'GET',
         headers: {
           'User-Agent': 'CeruMusic-Host/2.0.0 AuraMusic/1.0.0'
         }
       });
 
-      if (res.status !== 200 || !res.body) {
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (res.status !== 200 || (!res.body && !res.raw)) {
         throw new Error(`下载失败 (HTTP ${res.status || 0})`);
       }
 
-      const scriptContent = typeof res.body === 'string' ? res.body : JSON.stringify(res.body);
+      const scriptContent = typeof res.body === 'string' ? res.body : (res.raw || JSON.stringify(res.body));
       if (scriptContent.length < 50) {
         throw new Error('下载的内容不是有效的 JavaScript 插件文件');
       }
@@ -3404,10 +3410,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.2';
+        return info.versionName || '1.1.3';
       }
     } catch (e) {}
-    return '1.1.2';
+    return '1.1.3';
   }
 
   function showAppUpdateDialog(release, currentVer) {
@@ -4752,40 +4758,6 @@
     }
   }
 
-  // Handle Clipboard Import
-  async function handleClipboardImport() {
-    showImportStatus('正在读取剪贴板...', '正在从系统剪贴板获取内容');
-    try {
-      let clipText = '';
-      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
-        clipText = await navigator.clipboard.readText();
-      }
-
-      if (!clipText || !clipText.trim()) {
-        throw new Error('系统剪贴板为空或未授权读取剪贴板');
-      }
-
-      const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
-      const result = await parsePlaylistContent(clipText, customName);
-      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
-
-      toast(`成功从剪贴板导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
-      closeImportPlaylistModal();
-
-      openPlaylistDetail(savedPl.ref, {
-        title: savedPl.title,
-        author: savedPl.author,
-        artworkUrl: savedPl.artworkUrl,
-        trackCount: savedPl.tracks.length,
-        tracks: savedPl.tracks
-      });
-    } catch (err) {
-      console.error('Clipboard import error:', err);
-      showImportStatus('剪贴板导入失败', err.message || '未能识别剪贴板内容', true);
-      toast('剪贴板导入失败: ' + (err.message || '内容格式不支持'));
-    }
-  }
-
   // Handle Textarea Text Import
   async function handleTextImport() {
     const content = el.textareaImportContent ? el.textareaImportContent.value.trim() : '';
@@ -4902,8 +4874,11 @@
     el.btnChoosePlaylistFile.addEventListener('click', () => el.playlistFileInput.click());
     el.playlistFileInput.addEventListener('change', handlePlaylistFileInput);
   }
-  if (el.btnImportFromClipboard) {
-    el.btnImportFromClipboard.addEventListener('click', handleClipboardImport);
+  if (el.btnClearImportText && el.textareaImportContent) {
+    el.btnClearImportText.addEventListener('click', () => {
+      el.textareaImportContent.value = '';
+      el.textareaImportContent.focus();
+    });
   }
   if (el.btnConfirmTextImport) {
     el.btnConfirmTextImport.addEventListener('click', handleTextImport);

@@ -408,14 +408,23 @@ class MainActivity : AppCompatActivity() {
                 payload.put("requestId", requestId)
                 payload.put("status", status)
                 payload.put("headers", JSONObject(headersJson))
-                payload.put("body", body)
                 payload.put("error", error)
+
+                if (body != null && body.length > 48 * 1024) {
+                    WebAppInterface.largeBodyCache[requestId] = body
+                    payload.put("isLargeBody", true)
+                    payload.put("body", null)
+                } else {
+                    payload.put("isLargeBody", false)
+                    payload.put("body", body)
+                }
 
                 val bytes = payload.toString().toByteArray(Charsets.UTF_8)
                 val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
                 evaluateJavascript("window.onNativeHttpResponseBase64 && window.onNativeHttpResponseBase64('$b64');")
             } catch (e: Exception) {
                 e.printStackTrace()
+                evaluateJavascript("window.onNativeHttpResponse && window.onNativeHttpResponse('{\"requestId\":\"$requestId\",\"status\":0,\"error\":\"${e.message}\"}');")
             }
         }
     }

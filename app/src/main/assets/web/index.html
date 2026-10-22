@@ -931,7 +931,38 @@
 
     <!-- Scrollable Body -->
     <div class="flex-1 overflow-y-auto px-4 py-4 max-w-md mx-auto w-full flex flex-col gap-4">
-      <!-- Mode 1: 本地文件导入 (.cmpl, .cpl, .lxmc, .json) -->
+      <!-- Mode 1: 粘贴链接 / 文本 / 密文导入 -->
+      <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-sm">
+            <span class="material-symbols-outlined text-[22px]">link</span>
+          </div>
+          <div>
+            <h4 class="text-[14px] font-bold text-on-surface">粘贴链接 / 文本 / 密文</h4>
+            <span class="text-[11px] text-outline">支持网易云、QQ音乐、酷狗歌单分享链接或文本清单</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[12px] font-bold text-on-surface">歌单名称 (可选)</label>
+          <input id="inputImportPlaylistName" type="text" placeholder="留空则自动识别歌单标题或命名为：导入歌单" class="jelly-glass rounded-xl px-3 py-2 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary" />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[12px] font-bold text-on-surface">歌单链接或歌曲文本</label>
+            <button id="btnClearImportText" type="button" class="text-[11px] text-primary font-medium hover:underline">清空输入</button>
+          </div>
+          <textarea id="textareaImportContent" rows="5" placeholder="在此直接粘贴：&#10;1. 网易云 / QQ音乐 / 酷狗音乐 分享链接或分享文本;&#10;2. 纯文本歌曲清单 (每行一首: 晴天 - 周杰伦);&#10;3. 澜音导出的 AES 密文 (U2Fsd...) 或 JSON 歌单备份。" class="w-full jelly-glass rounded-xl p-3 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary resize-none font-mono"></textarea>
+        </div>
+
+        <button id="btnConfirmTextImport" class="h-11 px-4 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-md active-squish">
+          <span class="material-symbols-outlined text-[20px]">play_arrow</span>
+          <span>解析并导入为歌单</span>
+        </button>
+      </div>
+
+      <!-- Mode 2: 本地文件导入 (.cmpl, .cpl, .lxmc, .json) -->
       <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
         <div class="flex items-center gap-2.5">
           <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 flex items-center justify-center text-white shadow-sm">
@@ -949,56 +980,6 @@
         <button id="btnChoosePlaylistFile" class="h-11 px-4 rounded-2xl bg-primary text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm active-squish">
           <span class="material-symbols-outlined text-[20px]">file_open</span>
           <span>选择歌单文件导入</span>
-        </button>
-      </div>
-
-      <!-- Mode 2: 剪贴板一键智能导入 -->
-      <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-sm">
-              <span class="material-symbols-outlined text-[22px]">content_paste_go</span>
-            </div>
-            <div>
-              <h4 class="text-[14px] font-bold text-on-surface">剪贴板一键智能导入</h4>
-              <span class="text-[11px] text-outline">自动识别密文、歌单链接或歌曲列表</span>
-            </div>
-          </div>
-        </div>
-        <p class="text-[12px] text-on-surface-variant leading-relaxed">
-          复制了澜音加密文本、QQ/网易云/酷狗分享链接或歌曲清单？直接点击一键读取并智能识别。
-        </p>
-        <button id="btnImportFromClipboard" class="h-11 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm active-squish">
-          <span class="material-symbols-outlined text-[20px]">content_paste</span>
-          <span>从剪贴板读取并导入</span>
-        </button>
-      </div>
-
-      <!-- Mode 3: 文本 / 分享链接 / 代码导入 -->
-      <div class="jelly-glass rounded-3xl p-4 shadow-sm flex flex-col gap-3">
-        <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-sm">
-            <span class="material-symbols-outlined text-[22px]">edit_note</span>
-          </div>
-          <div>
-            <h4 class="text-[14px] font-bold text-on-surface">粘贴链接 / 文本 / 密文</h4>
-            <span class="text-[11px] text-outline">粘贴分享链接或「歌名 - 歌手」文本清单</span>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[12px] font-bold text-on-surface">歌单名称 (可选)</label>
-          <input id="inputImportPlaylistName" type="text" placeholder="留空则自动识别或命名为：导入歌单" class="jelly-glass rounded-xl px-3 py-2 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary" />
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label class="text-[12px] font-bold text-on-surface">歌单数据 / 链接 / 歌曲文本</label>
-          <textarea id="textareaImportContent" rows="4" placeholder="在此粘贴：&#10;1. 澜音导出的 AES 密文 (U2Fsd...);&#10;2. QQ音乐/网易云/酷狗等歌单分享链接;&#10;3. 每行一首歌曲: 晴天 - 周杰伦" class="w-full jelly-glass rounded-xl p-3 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary resize-none font-mono"></textarea>
-        </div>
-
-        <button id="btnConfirmTextImport" class="h-11 px-4 rounded-2xl bg-purple-600 text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-sm active-squish">
-          <span class="material-symbols-outlined text-[20px]">play_arrow</span>
-          <span>解析并导入为歌单</span>
         </button>
       </div>
 

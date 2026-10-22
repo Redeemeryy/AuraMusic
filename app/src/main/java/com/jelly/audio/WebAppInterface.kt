@@ -17,6 +17,10 @@ import java.util.concurrent.TimeUnit
 
 class WebAppInterface(private val activity: MainActivity) {
 
+    companion object {
+        val largeBodyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -156,6 +160,11 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun getHttpResponseBody(requestId: String): String {
+        return largeBodyCache.remove(requestId) ?: ""
+    }
+
+    @JavascriptInterface
     fun updateFavoriteState(isFav: Boolean) {
         mainHandler.post {
             activity.musicService?.updateFavoriteState(isFav)
@@ -174,7 +183,7 @@ class WebAppInterface(private val activity: MainActivity) {
         return try {
             val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
             val json = JSONObject()
-            json.put("versionName", pInfo.versionName ?: "1.1.0")
+            json.put("versionName", pInfo.versionName ?: "1.1.3")
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 json.put("versionCode", pInfo.longVersionCode)
             } else {
@@ -182,7 +191,7 @@ class WebAppInterface(private val activity: MainActivity) {
             }
             json.toString()
         } catch (e: Exception) {
-            "{\"versionName\":\"1.1.2\",\"versionCode\":4}"
+            "{\"versionName\":\"1.1.3\",\"versionCode\":5}"
         }
     }
 
