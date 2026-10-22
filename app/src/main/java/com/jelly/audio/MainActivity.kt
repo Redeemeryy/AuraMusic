@@ -300,6 +300,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startProgressPolling() {
+        stopProgressPolling()
         progressRunnable = object : Runnable {
             override fun run() {
                 musicService?.let { service ->
@@ -313,6 +314,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         mainHandler.post(progressRunnable!!)
+    }
+
+    private fun stopProgressPolling() {
+        progressRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            progressRunnable = null
+        }
     }
 
     fun postMediaEvent(event: String) {
@@ -413,7 +421,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun evaluateJavascript(script: String) {
-        webView.evaluateJavascript(script, null)
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript(script, null)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (::webView.isInitialized) {
+            webView.onResume()
+        }
+        startProgressPolling()
     }
 
     override fun onResume() {
@@ -427,8 +445,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        stopProgressPolling()
+        super.onPause()
+    }
+
+    override fun onStop() {
+        stopProgressPolling()
+        if (::webView.isInitialized) {
+            webView.onPause()
+        }
+        super.onStop()
+    }
+
     override fun onDestroy() {
-        progressRunnable?.let { mainHandler.removeCallbacks(it) }
+        stopProgressPolling()
         if (isBound) {
             unbindService(connection)
             isBound = false

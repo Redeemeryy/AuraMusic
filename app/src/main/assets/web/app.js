@@ -146,6 +146,19 @@
     btnFavPlaylist: document.getElementById('btnFavPlaylist'),
     favPlaylistIcon: document.getElementById('favPlaylistIcon'),
     favPlaylistText: document.getElementById('favPlaylistText'),
+    btnExportPlaylist: document.getElementById('btnExportPlaylist'),
+    btnOpenImportPlaylist: document.getElementById('btnOpenImportPlaylist'),
+    importPlaylistOverlay: document.getElementById('importPlaylistOverlay'),
+    btnCloseImportPlaylist: document.getElementById('btnCloseImportPlaylist'),
+    btnChoosePlaylistFile: document.getElementById('btnChoosePlaylistFile'),
+    playlistFileInput: document.getElementById('playlistFileInput'),
+    btnImportFromClipboard: document.getElementById('btnImportFromClipboard'),
+    inputImportPlaylistName: document.getElementById('inputImportPlaylistName'),
+    textareaImportContent: document.getElementById('textareaImportContent'),
+    btnConfirmTextImport: document.getElementById('btnConfirmTextImport'),
+    importStatusCard: document.getElementById('importStatusCard'),
+    importStatusTitle: document.getElementById('importStatusTitle'),
+    importStatusDesc: document.getElementById('importStatusDesc'),
     plDetailCover: document.getElementById('plDetailCover'),
     plDetailTitle: document.getElementById('plDetailTitle'),
     plDetailAuthor: document.getElementById('plDetailAuthor'),
@@ -746,9 +759,20 @@
   }
 
   // Robust stream resolver with graceful fallback
-  async function resolveStreamWithFallback(ref, preferredQuality, availableQualities = []) {
+  async function resolveStreamWithFallback(trackOrRef, preferredQuality, availableQualities = []) {
     const candidates = buildCandidateQualities(preferredQuality, availableQualities);
     console.log('[APP] Resolving stream with candidate ladder:', candidates);
+
+    const ref = {
+      ...(trackOrRef.ref || trackOrRef),
+      id: trackOrRef.ref?.id || trackOrRef.id,
+      providerId: trackOrRef.ref?.providerId || trackOrRef.source || 'tx',
+      title: trackOrRef.title || trackOrRef.name,
+      subtitle: trackOrRef.subtitle || trackOrRef.singer,
+      metadata: trackOrRef.metadata,
+      data: trackOrRef.data,
+      raw: trackOrRef.data?.song || trackOrRef.raw
+    };
 
     let lastError = null;
     for (const q of candidates) {
@@ -759,6 +783,7 @@
           if (u.length > 30 && !u.endsWith('.tc.qq.com/') && !u.endsWith('/')) {
             return {
               ...res,
+              url: u,
               actualQuality: res.actualQuality || q
             };
           }
@@ -768,6 +793,33 @@
         lastError = e;
       }
     }
+
+    // Fallback: If track has title & artist (e.g. from text import or missing id), search and resolve
+    if (ref.title) {
+      try {
+        const query = `${ref.title} ${ref.subtitle || ''}`.trim();
+        console.log('[APP] Attempting search fallback for:', query);
+        const searchRes = await window.MusicAPI.search(query, 'mix', 1, 5);
+        if (searchRes && searchRes.items && searchRes.items.length > 0) {
+          const matchedTrack = searchRes.items[0];
+          for (const q of candidates) {
+            try {
+              const res = await window.MusicAPI.resolve(matchedTrack.ref, q);
+              if (res && res.url && res.url.trim().length > 30) {
+                return {
+                  ...res,
+                  url: res.url.trim(),
+                  actualQuality: res.actualQuality || q
+                };
+              }
+            } catch (ignored) {}
+          }
+        }
+      } catch (err) {
+        console.warn('[APP] Search fallback failed:', err);
+      }
+    }
+
     throw (lastError || new Error('未能解析到可用音频播放直链'));
   }
 
@@ -864,7 +916,7 @@
     }
 
     try {
-      const resolved = await resolveStreamWithFallback(track.ref, state.preferredQuality, track.metadata?.qualities);
+      const resolved = await resolveStreamWithFallback(track, state.preferredQuality, track.metadata?.qualities);
       console.log('[APP] Resolved audio URL:', resolved.url, 'actual quality:', resolved.actualQuality);
       if (!resolved || !resolved.url) {
         throw new Error('未能解析到有效音频播放直链');
@@ -1802,6 +1854,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (el.importPlaylistOverlay && !el.importPlaylistOverlay.classList.contains('translate-y-full')) {
+      closeImportPlaylistModal();
+      return true;
+    }
     if (!el.commentsOverlay.classList.contains('translate-y-full')) {
       closeCommentsModal();
       return true;
@@ -2319,18 +2375,23 @@
     state.lyrics.sort((a, b) => a.time - b.time);
   }
 
-  // Render Lyrics Lines
+  // Render Lyrics Lines & Timeline Guide Handling
   let lyricsScrollTimeout = null;
   let currentTimelineSeekTime = 0;
+  let isManualUserScrollingLyrics = false;
+  let lyricsTouchActive = false;
+  let programmaticScrollLock = false;
 
   function seekToLyric(timeSec) {
     if (window.AndroidBridge && typeof window.AndroidBridge.seekTo === 'function') {
       window.AndroidBridge.seekTo(Math.floor(timeSec * 1000));
     }
+    isManualUserScrollingLyrics = false;
+    lyricsTouchActive = false;
+    state.isUserScrollingLyrics = false;
     state.currentTime = timeSec;
     syncLyrics(timeSec, true);
     hideLyricsTimelineGuide();
-    state.isUserScrollingLyrics = false;
   }
 
   function showLyricsTimelineGuide(timeSec) {
@@ -2353,6 +2414,7 @@
   }
 
   function handleLyricsUserScroll() {
+    if (!isManualUserScrollingLyrics || programmaticScrollLock) return;
     const isLand = window.innerWidth > window.innerHeight;
     if (!isLand && state.playerMode !== 'lyrics') return;
     if (state.lyrics.length === 0) return;
@@ -2385,24 +2447,76 @@
       showLyricsTimelineGuide(time);
     }
 
-    // Reset delay timer: wait 1.2s after user stops dragging before returning to current song line
+    scheduleLyricsScrollReset();
+  }
+
+  function scheduleLyricsScrollReset() {
     if (lyricsScrollTimeout) clearTimeout(lyricsScrollTimeout);
     lyricsScrollTimeout = setTimeout(() => {
+      if (lyricsTouchActive) {
+        scheduleLyricsScrollReset();
+        return;
+      }
+      isManualUserScrollingLyrics = false;
       state.isUserScrollingLyrics = false;
       hideLyricsTimelineGuide();
       // Smoothly return to the singing lyric line
       if (state.currentLyricIndex >= 0) {
         const activeNode = document.getElementById('lyric-line-' + state.currentLyricIndex);
         if (activeNode) {
+          programmaticScrollLock = true;
           activeNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => { programmaticScrollLock = false; }, 500);
         }
       }
-    }, 1200);
+    }, 2000);
   }
 
   if (el.lyricsScrollContainer) {
-    el.lyricsScrollContainer.addEventListener('scroll', handleLyricsUserScroll, { passive: true });
-    el.lyricsScrollContainer.addEventListener('touchmove', handleLyricsUserScroll, { passive: true });
+    el.lyricsScrollContainer.addEventListener('touchstart', () => {
+      lyricsTouchActive = true;
+      isManualUserScrollingLyrics = true;
+    }, { passive: true });
+
+    el.lyricsScrollContainer.addEventListener('touchmove', () => {
+      lyricsTouchActive = true;
+      isManualUserScrollingLyrics = true;
+      handleLyricsUserScroll();
+    }, { passive: true });
+
+    el.lyricsScrollContainer.addEventListener('touchend', () => {
+      lyricsTouchActive = false;
+      scheduleLyricsScrollReset();
+    }, { passive: true });
+
+    el.lyricsScrollContainer.addEventListener('touchcancel', () => {
+      lyricsTouchActive = false;
+      scheduleLyricsScrollReset();
+    }, { passive: true });
+
+    el.lyricsScrollContainer.addEventListener('mousedown', () => {
+      lyricsTouchActive = true;
+      isManualUserScrollingLyrics = true;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (lyricsTouchActive) {
+        lyricsTouchActive = false;
+        scheduleLyricsScrollReset();
+      }
+    });
+
+    el.lyricsScrollContainer.addEventListener('wheel', () => {
+      isManualUserScrollingLyrics = true;
+      handleLyricsUserScroll();
+      scheduleLyricsScrollReset();
+    }, { passive: true });
+
+    el.lyricsScrollContainer.addEventListener('scroll', () => {
+      if (isManualUserScrollingLyrics && !programmaticScrollLock) {
+        handleLyricsUserScroll();
+      }
+    }, { passive: true });
   }
 
   if (el.btnLyricsTimelinePlay) {
@@ -2457,11 +2571,13 @@
         }
       });
 
-      // User requirement: Do not force back while user is scrolling lyrics!
-      if (activeIdx >= 0 && (!state.isUserScrollingLyrics || forceScroll)) {
+      // User requirement: Do not force back while user is manually scrolling lyrics!
+      if (activeIdx >= 0 && (!isManualUserScrollingLyrics || forceScroll)) {
         const activeNode = document.getElementById('lyric-line-' + activeIdx);
         if (activeNode) {
+          programmaticScrollLock = true;
           activeNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => { programmaticScrollLock = false; }, 500);
         }
       }
 
@@ -2760,7 +2876,7 @@
 
         const currentPos = state.currentTime;
         try {
-          const resolved = await resolveStreamWithFallback(state.currentTrack.ref, chosenQ, state.currentTrack.metadata?.qualities);
+          const resolved = await resolveStreamWithFallback(state.currentTrack, chosenQ, state.currentTrack.metadata?.qualities);
           if (resolved && resolved.url) {
             const actualQ = resolved.actualQuality || chosenQ;
             state.currentQuality = actualQ;
@@ -3742,6 +3858,546 @@
         toast('已为你重新生成今日推荐 (30首)');
       });
     });
+  }
+
+  // ==========================================
+  // CeruMusic & LX Music Playlist Import / Export System
+  // ==========================================
+  const CERU_PLAYLIST_KEY = 'CeruMusic-PlaylistSecretKey';
+
+  async function decompressGzip(arrayBuffer) {
+    try {
+      const ds = new DecompressionStream('gzip');
+      const inStream = new Response(arrayBuffer).body.pipeThrough(ds);
+      return await new Response(inStream).text();
+    } catch (err) {
+      throw new Error('Gzip 解压失败: ' + (err.message || '数据流格式错误'));
+    }
+  }
+
+  async function compressGzip(str) {
+    try {
+      const cs = new CompressionStream('gzip');
+      const inStream = new Response(str).body.pipeThrough(cs);
+      return await new Response(inStream).blob();
+    } catch (err) {
+      throw new Error('Gzip 压缩失败: ' + (err.message || '未知错误'));
+    }
+  }
+
+  function decryptCeruPlaylist(ciphertext) {
+    try {
+      const clean = ciphertext.trim();
+      const decrypted = CryptoJS.AES.decrypt(clean, CERU_PLAYLIST_KEY).toString(CryptoJS.enc.Utf8);
+      if (!decrypted) throw new Error('解密结果为空，密码可能不匹配');
+      return JSON.parse(decrypted);
+    } catch (err) {
+      throw new Error('澜音歌单解密失败: ' + (err.message || '数据已损坏或密钥不匹配'));
+    }
+  }
+
+  function encryptCeruPlaylist(songs) {
+    try {
+      const jsonStr = JSON.stringify(songs);
+      return CryptoJS.AES.encrypt(jsonStr, CERU_PLAYLIST_KEY).toString();
+    } catch (err) {
+      throw new Error('歌单加密失败: ' + (err.message || '数据序列化失败'));
+    }
+  }
+
+  function parseIntervalToSeconds(val) {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    const str = String(val).trim();
+    if (str.includes(':')) {
+      const parts = str.split(':').map(Number);
+      if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
+      if (parts.length === 3) return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+    }
+    const n = parseInt(str, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function normalizeImportedSong(song) {
+    if (!song) return null;
+    if (song.title && song.ref && song.ref.id) return song;
+
+    const title = song.name || song.title || '未知曲目';
+    const singer = song.singer || song.artist || (Array.isArray(song.artists) ? song.artists.join(' / ') : '') || '未知歌手';
+    const providerId = (song.source || song.platform || 'tx').toLowerCase();
+    const songId = String(song.songmid || song.id || song.hash || song.meta?.songId || ('track_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)));
+    const albumName = song.albumName || song.album || song.meta?.albumName || '';
+    const albumId = song.albumId || song.meta?.albumId || '';
+    const img = song.img || song.artworkUrl || song.pic || song.cover || song.meta?.picUrl || '';
+    const intervalSec = parseIntervalToSeconds(song.interval || song.duration || song.meta?.interval);
+
+    const rawQualities = Array.isArray(song.types) && song.types.length > 0 
+      ? song.types 
+      : (song.meta?.qualitys ? song.meta.qualitys.map(q => q.type || q) : (song._types ? Object.keys(song._types) : ['128k', '320k', 'flac']));
+
+    return {
+      ref: {
+        pluginId: 'ceru-music-importer',
+        providerId: providerId,
+        kind: 'track',
+        id: songId
+      },
+      title: title,
+      subtitle: singer,
+      artworkUrl: img,
+      metadata: {
+        artists: singer.split(/[\/,、&]/).map(s => s.trim()).filter(Boolean),
+        album: {
+          title: albumName,
+          id: albumId
+        },
+        artworkUrl: img,
+        durationMs: intervalSec * 1000,
+        qualities: rawQualities
+      },
+      data: {
+        song: {
+          songmid: songId,
+          id: songId,
+          hash: song.hash || songId,
+          name: title,
+          singer: singer,
+          source: providerId,
+          albumName: albumName,
+          albumId: albumId,
+          interval: song.interval || intervalSec,
+          img: img,
+          types: rawQualities,
+          _types: song._types || {}
+        }
+      }
+    };
+  }
+
+  function showImportStatus(title, desc, isError = false) {
+    if (!el.importStatusCard) return;
+    el.importStatusCard.classList.remove('hidden');
+    if (el.importStatusTitle) {
+      el.importStatusTitle.textContent = title;
+      el.importStatusTitle.className = isError ? 'text-[13px] font-bold text-rose-500' : 'text-[13px] font-bold text-on-surface';
+    }
+    if (el.importStatusDesc) {
+      el.importStatusDesc.textContent = desc;
+    }
+    const spinner = document.getElementById('importStatusSpinner');
+    if (spinner) {
+      if (isError) spinner.classList.add('hidden');
+      else spinner.classList.remove('hidden');
+    }
+  }
+
+  function hideImportStatus() {
+    if (el.importStatusCard) el.importStatusCard.classList.add('hidden');
+  }
+
+  function openImportPlaylistModal() {
+    if (!el.importPlaylistOverlay) return;
+    hideImportStatus();
+    if (el.inputImportPlaylistName) el.inputImportPlaylistName.value = '';
+    if (el.textareaImportContent) el.textareaImportContent.value = '';
+    el.importPlaylistOverlay.classList.remove('translate-y-full');
+    if (el.miniPlayer) el.miniPlayer.classList.add('in-subpage');
+  }
+
+  function closeImportPlaylistModal() {
+    if (!el.importPlaylistOverlay) return;
+    el.importPlaylistOverlay.classList.add('translate-y-full');
+    if (el.miniPlayer && (!el.playlistDetailOverlay || el.playlistDetailOverlay.classList.contains('translate-y-full'))) {
+      el.miniPlayer.classList.remove('in-subpage');
+    }
+  }
+
+  // Parse Raw Data from File, Text, or Clipboard
+  async function parsePlaylistContent(rawTextOrBuffer, fileNameOrHint = '') {
+    let playlistName = fileNameOrHint ? fileNameOrHint.replace(/\.(cmpl|cpl|lxmc|json)$/i, '') : '';
+    let songItems = [];
+
+    // Case 1: Binary ArrayBuffer (.cmpl or .lxmc)
+    if (rawTextOrBuffer instanceof ArrayBuffer) {
+      const isLxmc = (fileNameOrHint || '').toLowerCase().endsWith('.lxmc');
+      showImportStatus('正在解压...', '正在通过 Gzip 解压文件数据');
+      const text = await decompressGzip(rawTextOrBuffer);
+
+      if (isLxmc) {
+        showImportStatus('正在解析...', '正在处理洛雪音乐歌单');
+        const parsed = JSON.parse(text);
+        if (parsed.type === 'playListPart_v2' && parsed.data) {
+          playlistName = parsed.data.name || playlistName;
+          songItems = parsed.data.list || [];
+        } else if (Array.isArray(parsed)) {
+          songItems = parsed;
+        } else if (parsed.list && Array.isArray(parsed.list)) {
+          playlistName = parsed.name || playlistName;
+          songItems = parsed.list;
+        }
+      } else {
+        // Assume CeruMusic .cmpl
+        showImportStatus('正在解密...', '正在通过 CeruMusic 密钥执行 AES 解密');
+        const rawJson = decryptCeruPlaylist(text);
+        if (Array.isArray(rawJson)) {
+          songItems = rawJson;
+        } else if (rawJson && Array.isArray(rawJson.list)) {
+          playlistName = rawJson.name || playlistName;
+          songItems = rawJson.list;
+        }
+      }
+    } else if (typeof rawTextOrBuffer === 'string') {
+      const content = rawTextOrBuffer.trim();
+      if (!content) throw new Error('导入内容为空');
+
+      // Case 2: CeruMusic AES Ciphertext (Base64)
+      if (content.startsWith('U2Fsd') || content.length > 80 && !content.startsWith('{') && !content.startsWith('[') && !content.includes('\n') && !content.startsWith('http')) {
+        showImportStatus('正在解密...', '正在识别澜音 AES 密文并解密');
+        const decrypted = decryptCeruPlaylist(content);
+        if (Array.isArray(decrypted)) {
+          songItems = decrypted;
+        } else if (decrypted && Array.isArray(decrypted.list)) {
+          playlistName = decrypted.name || playlistName;
+          songItems = decrypted.list;
+        }
+      }
+      // Case 3: JSON Text
+      else if (content.startsWith('{') || content.startsWith('[')) {
+        showImportStatus('正在解析...', '正在读取 JSON 歌单数据');
+        const parsed = JSON.parse(content);
+        if (parsed.type === 'playListPart_v2' && parsed.data) {
+          playlistName = parsed.data.name || playlistName;
+          songItems = parsed.data.list || [];
+        } else if (Array.isArray(parsed)) {
+          songItems = parsed;
+        } else if (parsed.list && Array.isArray(parsed.list)) {
+          playlistName = parsed.name || playlistName;
+          songItems = parsed.list;
+        }
+      }
+      // Case 4: Online Playlist Share URL
+      else if (content.includes('http://') || content.includes('https://')) {
+        showImportStatus('正在识别网络歌单...', '正在提取歌单平台与编号');
+        const qqMatch = content.match(/(?:playlist\/|id=)(\d{6,14})/);
+        const wyMatch = content.match(/(?:playlist\?id=|playlist\/)(\d{5,14})/);
+        const kgMatch = content.match(/(?:songlist|zlist)\/([a-zA-Z0-9]{6,36})/);
+
+        let source = 'tx';
+        let playlistId = '';
+
+        if (qqMatch) {
+          source = 'tx';
+          playlistId = qqMatch[1];
+          playlistName = playlistName || `QQ音乐歌单 (${playlistId})`;
+        } else if (wyMatch) {
+          source = 'wy';
+          playlistId = wyMatch[1];
+          playlistName = playlistName || `网易云歌单 (${playlistId})`;
+        } else if (kgMatch) {
+          source = 'kg';
+          playlistId = kgMatch[1];
+          playlistName = playlistName || `酷狗歌单 (${playlistId})`;
+        } else {
+          throw new Error('未识别出支持的歌单分享链接（支持 QQ音乐 / 网易云 / 酷狗）');
+        }
+
+        showImportStatus('正在获取在线歌曲...', `从 ${source.toUpperCase()} 平台检索歌单曲目`);
+        if (window.MusicAPI && typeof window.MusicAPI.getPlaylistDetail === 'function') {
+          const res = await window.MusicAPI.getPlaylistDetail(playlistId, source);
+          if (res && res.items && res.items.length > 0) {
+            playlistName = res.title || playlistName;
+            songItems = res.items;
+          } else {
+            throw new Error('未能从当前音源插件获取到该网络歌单的歌曲，请检查网络或音源插件状态');
+          }
+        } else {
+          throw new Error('当前音源未初始化，无法在线获取网络歌单曲目');
+        }
+      }
+      // Case 5: Plain Text Song List (one song per line, e.g. "歌名 - 歌手")
+      else {
+        showImportStatus('正在解析歌名清单...', '按行拆分歌曲与歌手');
+        const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) throw new Error('未能提取到任何歌曲');
+
+        playlistName = playlistName || ('文本导入歌单 - ' + new Date().toISOString().slice(0, 10));
+        songItems = lines.map((line, idx) => {
+          // Remove leading numbers like "1. ", "01- ", "1 "
+          const cleanLine = line.replace(/^\d+[\.\-\s、]\s*/, '').trim();
+          let title = cleanLine;
+          let singer = '未知歌手';
+
+          if (cleanLine.includes(' - ')) {
+            const parts = cleanLine.split(' - ');
+            title = parts[0].trim();
+            singer = parts.slice(1).join(' - ').trim();
+          } else if (cleanLine.includes('——')) {
+            const parts = cleanLine.split('——');
+            title = parts[0].trim();
+            singer = parts.slice(1).join('——').trim();
+          } else if (cleanLine.includes(' ')) {
+            const parts = cleanLine.split(/\s+/);
+            title = parts[0].trim();
+            singer = parts.slice(1).join(' ').trim();
+          }
+
+          return {
+            name: title,
+            singer: singer,
+            source: 'mix',
+            songmid: 'text_' + Date.now() + '_' + idx,
+            interval: '03:30'
+          };
+        });
+      }
+    }
+
+    if (!songItems || !Array.isArray(songItems) || songItems.length === 0) {
+      throw new Error('未能解析到任何有效歌曲数据');
+    }
+
+    // Normalize all tracks into AuraMusic standard structure
+    const normalizedTracks = songItems.map(normalizeImportedSong).filter(Boolean);
+    return {
+      name: playlistName || ('导入歌单 - ' + new Date().toISOString().slice(0, 10)),
+      tracks: normalizedTracks
+    };
+  }
+
+  function saveImportedPlaylist(name, tracks) {
+    if (!tracks || tracks.length === 0) throw new Error('歌单曲目为空');
+    const plId = 'imported_' + Date.now();
+    const plTitle = name || ('导入歌单 - ' + new Date().toISOString().slice(0, 10));
+    const firstArtwork = tracks.find(t => t.artworkUrl)?.artworkUrl || '';
+
+    const newPlaylist = {
+      ref: {
+        pluginId: 'ceru-music-importer',
+        providerId: tracks[0]?.ref?.providerId || 'tx',
+        kind: 'playlist',
+        id: plId
+      },
+      title: plTitle,
+      author: '本地导入',
+      subtitle: `${tracks.length} 首歌曲 • 澜音/CeruMusic`,
+      artworkUrl: firstArtwork,
+      playlist: {
+        author: '本地导入',
+        artworkUrl: firstArtwork,
+        trackCount: tracks.length
+      },
+      tracks: tracks
+    };
+
+    state.favoritePlaylists.unshift(newPlaylist);
+    try {
+      localStorage.setItem('jelly_fav_playlists', JSON.stringify(state.favoritePlaylists));
+    } catch (e) {}
+
+    renderLibrary();
+    return newPlaylist;
+  }
+
+  // Handle File Input (.cmpl, .cpl, .lxmc, .json)
+  async function handlePlaylistFileInput(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name;
+    const lowerName = fileName.toLowerCase();
+    showImportStatus('正在读取文件...', `正在加载 ${fileName}`);
+
+    try {
+      let result;
+      if (lowerName.endsWith('.cmpl') || lowerName.endsWith('.lxmc')) {
+        // Read as ArrayBuffer for gzip
+        const buffer = await file.arrayBuffer();
+        result = await parsePlaylistContent(buffer, fileName);
+      } else {
+        // Read as text (.cpl or .json)
+        const text = await file.text();
+        result = await parsePlaylistContent(text, fileName);
+      }
+
+      const savedPl = saveImportedPlaylist(result.name, result.tracks);
+      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
+      closeImportPlaylistModal();
+
+      // Open imported playlist immediately
+      openPlaylistDetail(savedPl.ref, {
+        title: savedPl.title,
+        author: savedPl.author,
+        artworkUrl: savedPl.artworkUrl,
+        trackCount: savedPl.tracks.length,
+        tracks: savedPl.tracks
+      });
+    } catch (err) {
+      console.error('File import error:', err);
+      showImportStatus('导入失败', err.message || '文件读取或解析失败', true);
+      toast('导入失败: ' + (err.message || '格式不支持'));
+    } finally {
+      e.target.value = '';
+    }
+  }
+
+  // Handle Clipboard Import
+  async function handleClipboardImport() {
+    showImportStatus('正在读取剪贴板...', '正在从系统剪贴板获取内容');
+    try {
+      let clipText = '';
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        clipText = await navigator.clipboard.readText();
+      }
+
+      if (!clipText || !clipText.trim()) {
+        throw new Error('系统剪贴板为空或未授权读取剪贴板');
+      }
+
+      const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
+      const result = await parsePlaylistContent(clipText, customName);
+      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
+
+      toast(`成功从剪贴板导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
+      closeImportPlaylistModal();
+
+      openPlaylistDetail(savedPl.ref, {
+        title: savedPl.title,
+        author: savedPl.author,
+        artworkUrl: savedPl.artworkUrl,
+        trackCount: savedPl.tracks.length,
+        tracks: savedPl.tracks
+      });
+    } catch (err) {
+      console.error('Clipboard import error:', err);
+      showImportStatus('剪贴板导入失败', err.message || '未能识别剪贴板内容', true);
+      toast('剪贴板导入失败: ' + (err.message || '内容格式不支持'));
+    }
+  }
+
+  // Handle Textarea Text Import
+  async function handleTextImport() {
+    const content = el.textareaImportContent ? el.textareaImportContent.value.trim() : '';
+    if (!content) {
+      toast('请先在输入框中粘贴歌单数据、链接或歌曲清单');
+      return;
+    }
+
+    const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
+    showImportStatus('正在解析...', '正在处理输入的内容');
+
+    try {
+      const result = await parsePlaylistContent(content, customName);
+      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
+
+      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
+      closeImportPlaylistModal();
+
+      openPlaylistDetail(savedPl.ref, {
+        title: savedPl.title,
+        author: savedPl.author,
+        artworkUrl: savedPl.artworkUrl,
+        trackCount: savedPl.tracks.length,
+        tracks: savedPl.tracks
+      });
+    } catch (err) {
+      console.error('Text import error:', err);
+      showImportStatus('导入失败', err.message || '内容解析失败', true);
+      toast('导入失败: ' + (err.message || '格式不匹配'));
+    }
+  }
+
+  // Export Playlist (Compatible with CeruMusic .cmpl and Clipboard AES)
+  async function exportCurrentPlaylist(mode = 'file') {
+    if (!currentPlaylistTracks || currentPlaylistTracks.length === 0) {
+      toast('当前歌单为空，无法导出');
+      return;
+    }
+
+    const title = el.plDetailTitle ? el.plDetailTitle.textContent.trim() : '我的歌单';
+    toast('正在生成澜音兼容歌单数据...');
+
+    try {
+      // Map to CeruMusic SongList schema
+      const ceruItems = currentPlaylistTracks.map(t => {
+        const rawQualities = (t.metadata?.qualities || ['128k', '320k', 'flac']);
+        return {
+          songmid: String(t.ref?.id || t.id || ''),
+          name: t.title || '未知歌曲',
+          singer: t.metadata?.artists?.join(' / ') || t.subtitle || '未知歌手',
+          albumName: t.metadata?.album?.title || '',
+          albumId: t.metadata?.album?.id || '',
+          source: (t.ref?.providerId || 'tx').toLowerCase(),
+          interval: formatTime(Math.floor((t.metadata?.durationMs || 0) / 1000)),
+          img: t.artworkUrl || t.metadata?.artworkUrl || '',
+          lrc: null,
+          types: rawQualities,
+          _types: {}
+        };
+      });
+
+      const encryptedText = encryptCeruPlaylist(ceruItems);
+
+      if (mode === 'clipboard') {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(encryptedText);
+          toast(`已将「${title}」加密歌单复制到剪贴板，可直接在 CeruMusic 导入`);
+        } else {
+          toast('剪贴板写入受限，请选择导出为文件');
+        }
+      } else {
+        // Gzip compression for .cmpl format
+        const blob = await compressGzip(encryptedText);
+        const fileName = `${title.replace(/[\/\\:*?"<>|]/g, '_')}-${new Date().toISOString().slice(0, 10)}.cmpl`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 300);
+
+        toast(`已导出澜音歌单文件: ${fileName}`);
+      }
+    } catch (err) {
+      console.error('Export playlist error:', err);
+      toast('导出歌单失败: ' + (err.message || '未知错误'));
+    }
+  }
+
+  // Export Playlist Button Click: Show action options
+  function handleExportPlaylistClick() {
+    const hasClipboard = navigator.clipboard && typeof navigator.clipboard.writeText === 'function';
+    const choice = confirm(`是否导出当前歌单？\n\n点击【确定】导出为澜音 .cmpl 格式文件\n点击【取消】${hasClipboard ? '复制加密文本到剪贴板' : '关闭'}`);
+    if (choice) {
+      exportCurrentPlaylist('file');
+    } else if (hasClipboard) {
+      exportCurrentPlaylist('clipboard');
+    }
+  }
+
+  // Register CeruMusic Import & Export Event Listeners
+  if (el.btnOpenImportPlaylist) {
+    el.btnOpenImportPlaylist.addEventListener('click', openImportPlaylistModal);
+  }
+  if (el.btnCloseImportPlaylist) {
+    el.btnCloseImportPlaylist.addEventListener('click', closeImportPlaylistModal);
+  }
+  if (el.btnChoosePlaylistFile && el.playlistFileInput) {
+    el.btnChoosePlaylistFile.addEventListener('click', () => el.playlistFileInput.click());
+    el.playlistFileInput.addEventListener('change', handlePlaylistFileInput);
+  }
+  if (el.btnImportFromClipboard) {
+    el.btnImportFromClipboard.addEventListener('click', handleClipboardImport);
+  }
+  if (el.btnConfirmTextImport) {
+    el.btnConfirmTextImport.addEventListener('click', handleTextImport);
+  }
+  if (el.btnExportPlaylist) {
+    el.btnExportPlaylist.addEventListener('click', handleExportPlaylistClick);
   }
 
   // Initialize CeruMusic Engine

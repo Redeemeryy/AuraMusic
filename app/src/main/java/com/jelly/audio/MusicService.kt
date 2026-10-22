@@ -54,6 +54,7 @@ class MusicService : MediaBrowserServiceCompat() {
     private val scope = CoroutineScope(Dispatchers.Main)
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var isForegroundServiceStarted = false
 
     private fun acquireLocks() {
         try {
@@ -63,11 +64,13 @@ class MusicService : MediaBrowserServiceCompat() {
                 wakeLock?.setReferenceCounted(false)
             }
             if (wakeLock?.isHeld != true) {
-                wakeLock?.acquire(24 * 3600 * 1000L)
+                // Acquire with a 2-hour safety timeout instead of locking CPU indefinitely
+                wakeLock?.acquire(2 * 3600 * 1000L)
             }
             if (wifiLock == null) {
                 val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "JellyAudio:WifiLock")
+                // Use standard WIFI_MODE_FULL instead of deprecated high-perf mode to prevent Wi-Fi modem thermal heating
+                wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "JellyAudio:WifiLock")
                 wifiLock?.setReferenceCounted(false)
             }
             if (wifiLock?.isHeld != true) {
@@ -499,6 +502,7 @@ class MusicService : MediaBrowserServiceCompat() {
     private var currentArtistName: String = "未知艺术家"
     private var lastLyricLine: String = ""
     private var currentCoverBitmap: Bitmap? = null
+    private var lastLyricNotifTime: Long = 0L
 
     fun updateCurrentLyric(lyric: String) {
         val cleanLyric = lyric.trim()
@@ -510,7 +514,10 @@ class MusicService : MediaBrowserServiceCompat() {
             val meta = buildMetadata(currentSongTitle, currentArtistName, currentCoverBitmap, isCurrentFav, currentDuration.toLong(), cleanLyric)
             mediaSession?.setMetadata(meta)
 
-            if (isPlaying) {
+            // Update notification subtitle throttled to avoid excessive SystemUI IPC overhead & heating
+            val now = SystemClock.elapsedRealtime()
+            if (isPlaying && (now - lastLyricNotifTime > 4000L)) {
+                lastLyricNotifTime = now
                 postNotification(currentSongTitle, currentArtistName, currentCoverBitmap, true)
             }
 
@@ -578,7 +585,10 @@ class MusicService : MediaBrowserServiceCompat() {
         player?.clearMediaItems()
         isPlaying = false
         releaseLocks()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        if (isForegroundServiceStarted) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            isForegroundServiceStarted = false
+        }
         stopSelf()
     }
 
@@ -655,13 +665,19 @@ class MusicService : MediaBrowserServiceCompat() {
     private fun postNotification(title: String, artist: String, coverBitmap: Bitmap?, playing: Boolean) {
         val notification = buildNotification(title, artist, coverBitmap, playing)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
         if (playing) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            if (!isForegroundServiceStarted) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+                isForegroundServiceStarted = true
             } else {
-                startForeground(NOTIFICATION_ID, notification)
+                manager.notify(NOTIFICATION_ID, notification)
             }
+        } else {
+            manager.notify(NOTIFICATION_ID, notification)
         }
     }
 

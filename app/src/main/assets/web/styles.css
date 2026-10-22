@@ -89,17 +89,20 @@ body, html {
   animation-play-state: paused !important;
 }
 
-/* Wave Bar Bounce */
+/* Wave Bar Bounce - GPU accelerated transform without layout reflows */
 @keyframes waveBounce {
-  0%, 100% { height: 4px; }
-  50% { height: 16px; }
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1.0); }
 }
 
 .wave-bar {
   display: inline-block;
   width: 3px;
+  height: 16px;
   background: var(--primary);
   border-radius: 9999px;
+  transform-origin: bottom;
+  will-change: transform;
   animation: waveBounce 1.2s ease-in-out infinite;
 }
 
@@ -315,22 +318,27 @@ body, html {
   transform: rotate(20deg);
 }
 
-/* Ambient Refraction Aura Breathing (Bug 8) */
+/* Ambient Refraction Aura Breathing - Optimized GPU transform & opacity without real-time convolution filter recalculation */
 @keyframes auraBreath {
   0%, 100% {
-    transform: scale(0.94);
-    opacity: 0.6;
-    filter: blur(40px) hue-rotate(0deg);
+    transform: scale(0.95);
+    opacity: 0.65;
   }
   50% {
-    transform: scale(1.15);
-    opacity: 0.95;
-    filter: blur(48px) hue-rotate(25deg);
+    transform: scale(1.12);
+    opacity: 0.90;
   }
 }
 
 .aura-breathing {
-  animation: auraBreath 4s ease-in-out infinite;
+  filter: blur(36px);
+  will-change: transform, opacity;
+  animation: auraBreath 4.5s ease-in-out infinite;
+}
+
+/* Pause heavy player animations when the full player is closed to save battery & prevent heating */
+#fullPlayerOverlay.translate-y-full * {
+  animation-play-state: paused !important;
 }
 
 /* Lyric Active Glow & Pulse (Bug 8) */

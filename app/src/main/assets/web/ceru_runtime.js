@@ -616,15 +616,17 @@ if (!Uint8Array.prototype.originalToString) {
             return await defaultPublicSearch(query, cursor || 1, limit || 20);
           },
           resolve: async (trackRef, quality) => {
-            const providerId = trackRef.providerId || trackRef.source || 'tx';
+            const providerId = trackRef.providerId || trackRef.source || trackRef.ref?.providerId || 'tx';
+            const rawSong = trackRef.data?.song || {};
             const musicInfo = {
-              id: trackRef.id || trackRef.ref?.id,
-              songmid: trackRef.id || trackRef.ref?.id,
-              hash: trackRef.raw?.hash || trackRef.id || trackRef.ref?.id,
-              name: trackRef.title,
-              singer: trackRef.metadata?.artists?.[0] || trackRef.subtitle,
-              album: trackRef.metadata?.album || '',
-              interval: Math.floor((trackRef.metadata?.durationMs || 0) / 1000),
+              id: trackRef.id || trackRef.ref?.id || rawSong.id || rawSong.songmid,
+              songmid: trackRef.id || trackRef.ref?.id || rawSong.songmid || rawSong.id,
+              hash: trackRef.raw?.hash || rawSong.hash || trackRef.id || trackRef.ref?.id,
+              name: trackRef.title || rawSong.name,
+              singer: trackRef.metadata?.artists?.[0] || trackRef.subtitle || rawSong.singer,
+              album: trackRef.metadata?.album?.title || trackRef.metadata?.album || rawSong.albumName || '',
+              interval: Math.floor((trackRef.metadata?.durationMs || 0) / 1000) || rawSong.interval || 0,
+              ...rawSong,
               ...trackRef.raw
             };
             const directUrl = await bridge.resolveMusicUrl(providerId, musicInfo, quality);
