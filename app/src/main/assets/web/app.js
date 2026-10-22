@@ -3404,10 +3404,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.0';
+        return info.versionName || '1.1.1';
       }
     } catch (e) {}
-    return '1.1.0';
+    return '1.1.1';
   }
 
   function showAppUpdateDialog(release, currentVer) {
@@ -3516,7 +3516,7 @@
       const downloadUrl = apkAsset?.browser_download_url || activeAppRelease.html_url;
       const fileName = apkAsset?.name || `AuraMusic-${activeAppRelease.tag_name || 'update'}.apk`;
 
-      if (downloadUrl.endsWith('.apk') && window.AndroidBridge && typeof window.AndroidBridge.downloadAndInstallApk === 'function') {
+      if ((downloadUrl.includes('.apk') || (apkAsset && (apkAsset.name || '').endsWith('.apk'))) && window.AndroidBridge && typeof window.AndroidBridge.downloadAndInstallApk === 'function') {
         window.AndroidBridge.downloadAndInstallApk(downloadUrl, fileName);
         closeAppUpdateDialog();
       } else {
