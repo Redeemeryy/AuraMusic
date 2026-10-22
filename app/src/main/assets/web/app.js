@@ -3417,10 +3417,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.4';
+        return info.versionName || '1.1.5';
       }
     } catch (e) {}
-    return '1.1.4';
+    return '1.1.5';
   }
 
   function showAppUpdateDialog(release, currentVer) {
@@ -4506,33 +4506,13 @@
       const content = rawTextOrBuffer.trim();
       if (!content) throw new Error('导入内容为空');
 
-      // Case 2: CeruMusic AES Ciphertext (Base64)
-      if (content.startsWith('U2Fsd') || content.length > 80 && !content.startsWith('{') && !content.startsWith('[') && !content.includes('\n') && !content.startsWith('http')) {
-        showImportStatus('正在解密...', '正在识别澜音 AES 密文并解密');
-        const decrypted = decryptCeruPlaylist(content);
-        if (Array.isArray(decrypted)) {
-          songItems = decrypted;
-        } else if (decrypted && Array.isArray(decrypted.list)) {
-          playlistName = decrypted.name || playlistName;
-          songItems = decrypted.list;
-        }
-      }
-      // Case 3: JSON Text
-      else if (content.startsWith('{') || content.startsWith('[')) {
-        showImportStatus('正在解析...', '正在读取 JSON 歌单数据');
-        const parsed = JSON.parse(content);
-        if (parsed.type === 'playListPart_v2' && parsed.data) {
-          playlistName = parsed.data.name || playlistName;
-          songItems = parsed.data.list || [];
-        } else if (Array.isArray(parsed)) {
-          songItems = parsed;
-        } else if (parsed.list && Array.isArray(parsed.list)) {
-          playlistName = parsed.name || playlistName;
-          songItems = parsed.list;
-        }
-      }
-      // Case 4: Online Playlist Share URL, Share Text or Playlist ID
-      else if (content.includes('http://') || content.includes('https://') || /^\d{5,14}$/.test(content.trim()) || /(?:163|qq|kugou|网易云|酷狗)/i.test(content)) {
+      // Check for Online Playlist Share URL, Share Text, platform domain keywords or pure numeric ID
+      const hasHttp = /https?:\/\/[^\s"'<>]+/i.test(content);
+      const hasPlatformKeyword = /(?:163\.com|126\.net|163cn\.tv|网易云|qq\.com|tencent|QQ音乐|kugou\.com|酷狗|kuwo\.cn|酷我|migu\.cn|咪咕|分享歌单|playlist)/i.test(content);
+      const isPureNumericId = /^\d{5,14}$/.test(content);
+
+      // Case 1: Online Playlist Share URL, Share Text or Playlist ID (Priority 1)
+      if (hasHttp || hasPlatformKeyword || isPureNumericId) {
         showImportStatus('正在识别网络歌单...', '正在分析歌单平台与编号');
 
         let source = '';
@@ -4572,7 +4552,7 @@
         }
 
         // If ID not found directly, follow shortlink redirect if an HTTP link exists
-        if (!playlistId && (content.includes('http://') || content.includes('https://'))) {
+        if (!playlistId && hasHttp) {
           const urlMatch = content.match(/https?:\/\/[^\s"'<>]+/i);
           if (urlMatch && window.nativeHttpFetch) {
             showImportStatus('正在解析重定向短链...', '正在请求短链接以获取目标歌单真实地址');
@@ -4597,7 +4577,7 @@
 
         // Generic fallback for pure numeric ID or unidentified URL with ?id=
         if (!playlistId) {
-          const numMatch = content.trim().match(/^(\d{5,14})$/);
+          const numMatch = content.match(/^(\d{5,14})$/);
           if (numMatch) {
             playlistId = numMatch[1];
             if (!source) source = 'wy';
@@ -4629,14 +4609,48 @@
           }
         }
 
-        if (res && res.items && res.items.length > 0) {
-          playlistName = extractedTitle || res.title || `${platformLabel}歌单 (${playlistId})`;
-          songItems = res.items;
+        const validItems = (res && Array.isArray(res.items) && res.items.length > 0)
+          ? res.items
+          : (res && Array.isArray(res.list) && res.list.length > 0 ? res.list : []);
+
+        if (validItems.length > 0) {
+          playlistName = extractedTitle || res.title || res.name || `${platformLabel}歌单 (${playlistId})`;
+          songItems = validItems;
         } else {
           throw new Error(`未能获取到 ${platformLabel} 歌单中的歌曲，请确认网络连接及歌单是否为公开歌单`);
         }
       }
-      // Case 5: Plain Text Song List (one song per line, e.g. "歌名 - 歌手")
+      // Case 2: JSON Text
+      else if (content.startsWith('{') || content.startsWith('[')) {
+        showImportStatus('正在解析...', '正在读取 JSON 歌单数据');
+        const parsed = JSON.parse(content);
+        if (parsed.type === 'playListPart_v2' && parsed.data) {
+          playlistName = parsed.data.name || playlistName;
+          songItems = parsed.data.list || [];
+        } else if (Array.isArray(parsed)) {
+          songItems = parsed;
+        } else if (parsed.list && Array.isArray(parsed.list)) {
+          playlistName = parsed.name || playlistName;
+          songItems = parsed.list;
+        }
+      }
+      // Case 3: CeruMusic AES Ciphertext (Strict Base64 starting with U2Fsd)
+      else if (content.startsWith('U2Fsd') && /^[A-Za-z0-9+/=]+$/.test(content)) {
+        showImportStatus('正在解密...', '正在识别澜音 AES 密文并解密');
+        try {
+          const decrypted = decryptCeruPlaylist(content);
+          if (Array.isArray(decrypted)) {
+            songItems = decrypted;
+          } else if (decrypted && Array.isArray(decrypted.list)) {
+            playlistName = decrypted.name || playlistName;
+            songItems = decrypted.list;
+          }
+        } catch (decryptErr) {
+          console.warn('[Import] AES decrypt error:', decryptErr);
+          throw new Error('澜音歌单解密失败: ' + (decryptErr.message || '密文数据损坏或密码不匹配'));
+        }
+      }
+      // Case 4: Plain Text Song List (one song per line, e.g. "歌名 - 歌手")
       else {
         showImportStatus('正在解析歌名清单...', '按行拆分歌曲与歌手');
         const lines = content.split('\n').map(l => l.trim()).filter(Boolean);

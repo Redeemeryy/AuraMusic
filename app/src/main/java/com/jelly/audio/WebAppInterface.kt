@@ -207,7 +207,7 @@ class WebAppInterface(private val activity: MainActivity) {
         return try {
             val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
             val json = JSONObject()
-            json.put("versionName", pInfo.versionName ?: "1.1.4")
+            json.put("versionName", pInfo.versionName ?: "1.1.5")
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 json.put("versionCode", pInfo.longVersionCode)
             } else {
@@ -215,7 +215,7 @@ class WebAppInterface(private val activity: MainActivity) {
             }
             json.toString()
         } catch (e: Exception) {
-            "{\"versionName\":\"1.1.4\",\"versionCode\":6}"
+            "{\"versionName\":\"1.1.5\",\"versionCode\":7}"
         }
     }
 
