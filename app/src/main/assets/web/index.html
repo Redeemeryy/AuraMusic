@@ -653,22 +653,22 @@
         </div>
       </div>
       <!-- Actions Bar -->
-      <div class="flex items-center justify-between px-1">
-        <div class="flex items-center gap-2">
-          <button id="btnPlayAllPlaylist" class="h-10 px-4 rounded-full bg-primary text-white font-bold text-[13px] flex items-center gap-1.5 shadow-md active-squish">
-            <span class="material-symbols-outlined text-[18px]">play_circle</span>
-            <span>播放全部</span>
+      <div class="flex items-center justify-between gap-2 px-1 overflow-x-auto no-scrollbar py-0.5 flex-nowrap pl-actions-container">
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <button id="btnPlayAllPlaylist" class="h-9 px-3.5 rounded-full bg-primary text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md active-squish whitespace-nowrap flex-shrink-0 select-none min-w-max">
+            <span class="material-symbols-outlined text-[18px] flex-shrink-0">play_circle</span>
+            <span class="whitespace-nowrap flex-shrink-0">播放全部</span>
           </button>
-          <button id="btnFavPlaylist" class="h-10 px-3.5 rounded-full jelly-glass text-on-surface font-bold text-[13px] flex items-center gap-1.5 shadow-sm active-squish">
-            <span class="material-symbols-outlined text-[18px]" id="favPlaylistIcon">favorite_border</span>
-            <span id="favPlaylistText">收藏</span>
+          <button id="btnFavPlaylist" class="h-9 px-3 rounded-full jelly-glass text-on-surface font-bold text-[12.5px] flex items-center justify-center gap-1.5 shadow-sm active-squish whitespace-nowrap flex-shrink-0 select-none min-w-max">
+            <span class="material-symbols-outlined text-[17px] flex-shrink-0" id="favPlaylistIcon">favorite_border</span>
+            <span id="favPlaylistText" class="whitespace-nowrap flex-shrink-0">收藏</span>
           </button>
-          <button id="btnExportPlaylist" class="h-10 px-3 rounded-full jelly-glass text-on-surface font-bold text-[12px] flex items-center gap-1 shadow-sm active-squish" title="导出为澜音/CeruMusic歌单">
-            <span class="material-symbols-outlined text-[17px]">file_upload</span>
-            <span>导出</span>
+          <button id="btnExportPlaylist" class="h-9 px-3 rounded-full jelly-glass text-on-surface font-bold text-[12px] flex items-center justify-center gap-1 shadow-sm active-squish whitespace-nowrap flex-shrink-0 select-none min-w-max" title="导出为澜音/CeruMusic歌单">
+            <span class="material-symbols-outlined text-[16px] flex-shrink-0">file_upload</span>
+            <span class="whitespace-nowrap flex-shrink-0">导出</span>
           </button>
         </div>
-        <span id="plDetailSourceBadge" class="px-2.5 py-1 rounded-full text-[11px] font-bold jelly-glass text-secondary uppercase">TX 音源</span>
+        <span id="plDetailSourceBadge" class="px-2.5 py-1 rounded-full text-[11px] font-bold jelly-glass text-secondary uppercase whitespace-nowrap flex-shrink-0 select-none min-w-max leading-none text-center">TX 音源</span>
       </div>
       <!-- Tracks List -->
       <div id="plDetailTracksList" class="flex flex-col gap-2 pb-32">

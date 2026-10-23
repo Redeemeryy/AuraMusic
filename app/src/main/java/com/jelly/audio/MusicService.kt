@@ -121,9 +121,10 @@ class MusicService : MediaBrowserServiceCompat() {
 
     var onStateChangedListener: ((Boolean) -> Unit)? = null
     var onTrackCompletedListener: (() -> Unit)? = null
+    private var isSuperxCreated: Boolean = false
 
     companion object {
-        const val CHANNEL_ID = "jelly_audio_playback_v2"
+        const val CHANNEL_ID = "aura_audio_playback_v3"
         const val NOTIFICATION_ID = 1001
 
         const val ACTION_PLAY = "com.auramusic.app.ACTION_PLAY"
@@ -154,6 +155,11 @@ class MusicService : MediaBrowserServiceCompat() {
             putBoolean("android.service.media.extra.RECENT", true)
             putBoolean("android.service.media.extra.OFFLINE", true)
             putBoolean("vivomusicmix.media.metadata.SUPPORT_FAVORITE", true)
+            putBoolean("support_atomic_notification", true)
+            putBoolean("supportAtomIsland", true)
+            putBoolean("SUPPORT_ISLAND", true)
+            putBoolean("vivo_superx_notification", true)
+            putBoolean("vivo.liveNotification.support", true)
         }
         return BrowserRoot("root_media_id", extras)
     }
@@ -279,12 +285,14 @@ class MusicService : MediaBrowserServiceCompat() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "音乐播放与原子岛",
-                NotificationManager.IMPORTANCE_DEFAULT
+                "音乐播放与原子岛胶囊",
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "正在播放音乐通知与原子岛控制"
+                description = "正在播放音乐与vivo原子岛实时状态控制"
                 setShowBadge(true)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -462,6 +470,7 @@ class MusicService : MediaBrowserServiceCompat() {
         currentArtistName = artist
         lastLyricLine = ""
         currentCoverBitmap = null
+        isSuperxCreated = false
 
         android.util.Log.d("JellyAudio", "MusicService play via ExoPlayer: $url, title: $title, artist: $artist, duration: $durationMs, isFav: $isCurrentFav")
 
@@ -585,6 +594,26 @@ class MusicService : MediaBrowserServiceCompat() {
         player?.clearMediaItems()
         isPlaying = false
         releaseLocks()
+        if (isSuperxCreated) {
+            try {
+                val dismissBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setContentTitle(currentSongTitle)
+                    .setContentText(currentArtistName)
+                    .setPriority(NotificationCompat.PRIORITY_MIN)
+                    .setSilent(true)
+                dismissBuilder.extras.apply {
+                    putInt("notification.superx.operation", 2)
+                    putInt("island.superx.operation", 2)
+                    putBoolean("notification.superx.showNotify", false)
+                    putBoolean("island.superx.showNotify", false)
+                }
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.notify(NOTIFICATION_ID, dismissBuilder.build())
+                manager.cancel(NOTIFICATION_ID)
+            } catch (ignored: Exception) {}
+            isSuperxCreated = false
+        }
         if (isForegroundServiceStarted) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             isForegroundServiceStarted = false
@@ -737,7 +766,7 @@ class MusicService : MediaBrowserServiceCompat() {
             .setContentIntent(contentIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setSilent(true)
             .setShowWhen(false)
             .addAction(favIcon, favText, favIntent)
@@ -756,29 +785,64 @@ class MusicService : MediaBrowserServiceCompat() {
             builder.setLargeIcon(coverBitmap)
         }
 
-        // 1. Vivo OriginOS 5 & 6 SuperX Capsule (原子岛顶栏胶囊)
+        val op = if (!isSuperxCreated && playing) {
+            isSuperxCreated = true
+            0 // 0: Create atomic capsule
+        } else {
+            1 // 1: Update atomic capsule
+        }
+
+        // 1. Vivo OriginOS 4/5/6 SuperX Capsule (原子岛顶栏实时胶囊)
         val capsuleBundle = Bundle().apply {
+            putInt("state", if (playing) 1 else 0)
             putInt("notification.superx.capsule.state", if (playing) 1 else 0)
             coverBitmap?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    putParcelable("notification.superx.capsule.icon", android.graphics.drawable.Icon.createWithBitmap(it))
+                    val icon = android.graphics.drawable.Icon.createWithBitmap(it)
+                    putParcelable("icon", icon)
+                    putParcelable("notification.superx.capsule.icon", icon)
                 }
             }
+            putString("title", title)
+            putString("content", title)
             putString("notification.superx.capsule.content", title)
+            putString("artist", artist)
+            putString("subTitle", artist)
+            putString("notification.superx.capsule.subTitle", artist)
+            putBoolean("isFav", isCurrentFav)
             putBoolean("notification.superx.capsule.isFav", isCurrentFav)
+            putParcelable("favIntent", favIntent)
             putParcelable("notification.superx.capsule.favIntent", favIntent)
+            putParcelable("playIntent", toggleIntent)
+            putParcelable("toggleIntent", toggleIntent)
+            putParcelable("nextIntent", nextIntent)
+            putParcelable("prevIntent", prevIntent)
+            putParcelable("clickResp", contentIntent)
         }
-        builder.extras.putBundle("notification.superx.capsule", capsuleBundle)
-        builder.extras.putInt("notification.superx.operation", 1)
-        builder.extras.putBoolean("notification.superx.showNotify", true)
-        builder.extras.putParcelable("notification.superx.clickResp", contentIntent)
 
-        // 2. Vivo OriginOS 4/5/6 Atomic Island (原子岛/原子随身听) compatibility extras
         builder.extras.apply {
+            putBundle("notification.superx.capsule", capsuleBundle)
+            putInt("notification.superx.operation", op)
+            putBoolean("notification.superx.showNotify", true)
+            putString("notification.superx.template", "music")
+            putString("notification.superx.scene", "music")
+            putParcelable("notification.superx.clickResp", contentIntent)
+
+            // Mirror for OriginOS island.superx.* namespace
+            putBundle("island.superx.capsule", capsuleBundle)
+            putInt("island.superx.operation", op)
+            putBoolean("island.superx.showNotify", true)
+            putString("island.superx.template", "music")
+            putString("island.superx.scene", "music")
+            putParcelable("island.superx.clickResp", contentIntent)
+
+            // 2. Vivo OriginOS 4/5/6 Live Notification & Capsule compatibility extras
             putBoolean("vivo.summaryNotification", true)
             putString("vivo.liveNotification.type", "music")
+            putString("com.vivo.liveNotification.type", "music")
             putString("origin.liveNotification.type", "media")
             putBoolean("vivo.origin.capsule", true)
+            putBoolean("vivo.liveNotification.support", true)
             putBoolean("origin.capsule.enable", true)
             putString("origin.capsule.type", "music")
             putBoolean("vivo.isMusicPlaying", playing)
@@ -789,6 +853,9 @@ class MusicService : MediaBrowserServiceCompat() {
             putBoolean("origin.music.favorite", isCurrentFav)
             putParcelable("vivo.music.favIntent", favIntent)
             putParcelable("origin.music.favIntent", favIntent)
+            putParcelable("origin.music.toggleIntent", toggleIntent)
+            putParcelable("origin.music.nextIntent", nextIntent)
+            putParcelable("origin.music.prevIntent", prevIntent)
         }
 
         return builder.build()

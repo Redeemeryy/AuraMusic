@@ -3417,10 +3417,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.5';
+        return info.versionName || '1.1.6';
       }
     } catch (e) {}
-    return '1.1.5';
+    return '1.1.6';
   }
 
   function showAppUpdateDialog(release, currentVer) {

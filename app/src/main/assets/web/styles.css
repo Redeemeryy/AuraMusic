@@ -873,5 +873,45 @@ body, html {
   }
 }
 
+/* ==========================================================================
+   Playlist Detail Action Bar Layout & Text Stabilization
+   Guarantees that 播放全部, 收藏, 导出, and 音源 badge NEVER wrap or squish vertically
+   ========================================================================== */
+#playlistDetailOverlay .pl-actions-container,
+#playlistDetailOverlay .flex.items-center.justify-between {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+#btnPlayAllPlaylist,
+#btnFavPlaylist,
+#btnExportPlaylist,
+#plDetailSourceBadge {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+}
+
+#btnPlayAllPlaylist span,
+#btnFavPlaylist span,
+#btnExportPlaylist span,
+#plDetailSourceBadge {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+
+
 
 

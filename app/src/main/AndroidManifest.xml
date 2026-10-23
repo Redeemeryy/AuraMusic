@@ -44,6 +44,18 @@
         <!-- Support widescreen car dashboards (up to 3.5 aspect ratio) -->
         <meta-data android:name="android.max_aspect" android:value="3.5" />
 
+        <!-- vivo OriginOS 4, 5, 6 Atomic Island (原子岛 / SuperX / 实时胶囊) 系统级门禁声明 -->
+        <meta-data android:name="support_atomic_notification" android:value="true" />
+        <meta-data android:name="supportAtomIsland" android:value="true" />
+        <meta-data android:name="SUPPORT_ISLAND" android:value="true" />
+        <meta-data android:name="vivo_superx_notification" android:value="true" />
+        <meta-data android:name="com.vivo.liveNotification.type" android:value="music" />
+        <meta-data android:name="vivo.liveNotification.support" android:value="true" />
+        <meta-data android:name="com.vivo.origin.capsule" android:value="true" />
+        <meta-data android:name="com.vivo.notification.capsule" android:value="true" />
+        <meta-data android:name="vivo_media_notification" android:value="true" />
+        <meta-data android:name="vivo_notification_capsule_support" android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -56,6 +68,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="support_atomic_notification" android:value="true" />
+            <meta-data android:name="supportAtomIsland" android:value="true" />
         </activity>
 
         <service
@@ -69,7 +83,16 @@
                 <action android:name="com.vivo.musicwidgetmix.support.service" />
                 <action android:name="vivomusicmix.media.action.FAVORITE" />
                 <action android:name="com.vivo.action.FAVORITE" />
+                <action android:name="com.vivo.liveNotification.service" />
+                <action android:name="com.vivo.superx.action" />
+                <action android:name="com.vivo.origin.capsule.action" />
             </intent-filter>
+            <meta-data android:name="support_atomic_notification" android:value="true" />
+            <meta-data android:name="supportAtomIsland" android:value="true" />
+            <meta-data android:name="SUPPORT_ISLAND" android:value="true" />
+            <meta-data android:name="vivo_superx_notification" android:value="true" />
+            <meta-data android:name="com.vivo.liveNotification.type" android:value="music" />
+            <meta-data android:name="vivo.liveNotification.support" android:value="true" />
         </service>
 
         <receiver
