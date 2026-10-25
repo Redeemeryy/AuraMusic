@@ -8,7 +8,7 @@
     isPlaying: false,
     currentTime: 0,
     duration: 0,
-    playMode: 'sequence', // 'sequence', 'loop', 'shuffle'
+    playMode: window.AuraPreferences.get().playMode, // 'sequence', 'loop', 'shuffle'
     currentSource: 'mix',
     searchType: 'song', // 'song' or 'playlist'
     playerMode: 'vinyl', // 'vinyl' or 'lyrics'
@@ -357,7 +357,7 @@
 
   // Native Edge-to-Edge & System Insets Adaptation (Vivo X200 Pro mini / Xiaomi 13 Ultra)
   window.applyNativeInsets = function(topDp, bottomDp, leftDp, rightDp) {
-    if (typeof topDp === 'number' && topDp > 0) {
+    if (typeof topDp === 'number' && topDp >= 0) {
       document.documentElement.style.setProperty('--safe-top', `${topDp}px`);
     }
     if (typeof bottomDp === 'number' && bottomDp >= 0) {
@@ -1037,6 +1037,7 @@
 
   // Update Mini Player UI
   function updateMiniPlayer(track) {
+    document.documentElement.classList.toggle('no-track', !track);
     if (!track) return;
     el.miniTitle.textContent = track.title;
     el.miniArtist.textContent = track.metadata?.artists?.join(' / ') || track.subtitle || '未知歌手';
@@ -1056,6 +1057,7 @@
     syncAllQualityBadges();
     const artwork = resolveTrackArtwork(track);
     el.fullCover.src = artwork;
+    el.fullPlayerOverlay.style.setProperty('--player-artwork', `url(${JSON.stringify(artwork)})`);
     el.fullCover.onerror = () => { el.fullCover.src = createFallbackCover(track.title, el.fullArtist.textContent); };
     updateFavHeart();
   }
@@ -1147,22 +1149,20 @@
   el.btnPrev.addEventListener('click', playPrev);
   el.btnNext.addEventListener('click', playNext);
 
-  // Play Mode Toggle
-  el.btnPlayMode.addEventListener('click', () => {
-    if (state.playMode === 'sequence') {
-      state.playMode = 'loop';
-      el.playModeIcon.textContent = 'repeat_one';
-      toast('单曲循环');
-    } else if (state.playMode === 'loop') {
-      state.playMode = 'shuffle';
-      el.playModeIcon.textContent = 'shuffle';
-      toast('随机播放');
-    } else {
-      state.playMode = 'sequence';
-      el.playModeIcon.textContent = 'repeat';
-      toast('顺序播放');
-    }
-  });
+  // All mode controls use one persistent state transition.
+  function setPlayMode(mode, announce = true) {
+    state.playMode = window.AuraPreferences.set({ playMode: mode }).playMode;
+    el.playModeIcon.textContent = { sequence: 'repeat', loop: 'repeat_one', shuffle: 'shuffle' }[state.playMode];
+    document.getElementById('settingPlayMode').value = state.playMode;
+    document.getElementById('settingPlayModeLabel').textContent = { sequence: '列表循环', loop: '单曲循环', shuffle: '随机播放' }[state.playMode];
+    document.querySelectorAll('#playModeDialog [data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === state.playMode)));
+    updateQueuePlayModeUI();
+    if (announce) toast({ sequence: '列表循环', loop: '单曲循环', shuffle: '随机播放' }[state.playMode]);
+  }
+  function cyclePlayMode() {
+    setPlayMode({ sequence: 'loop', loop: 'shuffle', shuffle: 'sequence' }[state.playMode]);
+  }
+  el.btnPlayMode.addEventListener('click', cyclePlayMode);
 
   // Player Mode Switching (Vinyl <-> Lyrics)
   function setPlayerMode(mode) {
@@ -1170,7 +1170,7 @@
     const isLyrics = mode === 'lyrics';
     el.fullPlayerOverlay.classList.toggle('player-mode-lyrics', isLyrics);
     el.fullPlayerOverlay.classList.toggle('player-mode-vinyl', !isLyrics);
-    const isLand = window.innerWidth > window.innerHeight;
+    const isLand = (window.innerWidth >= 700 && window.innerWidth > window.innerHeight);
     if (!isLand) {
       el.vinylStage.classList.toggle('hidden', isLyrics);
       el.lyricsStage.classList.toggle('hidden', !isLyrics);
@@ -1195,7 +1195,7 @@
     el.fullPlayerOverlay.style.transform = '';
     el.fullPlayerOverlay.style.transition = '';
     el.fullPlayerOverlay.classList.remove('translate-y-full');
-    const isLand = window.innerWidth > window.innerHeight;
+    const isLand = (window.innerWidth >= 700 && window.innerWidth > window.innerHeight);
     if (isLand) {
       el.vinylStage.classList.remove('hidden');
       el.lyricsStage.classList.remove('hidden');
@@ -1272,7 +1272,7 @@
   el.fullPlayerOverlay.addEventListener('touchend', () => {
     if (!isDraggingPlayer) return;
     isDraggingPlayer = false;
-    const threshold = (window.innerWidth > window.innerHeight) ? 60 : 90;
+    const threshold = ((window.innerWidth >= 700 && window.innerWidth > window.innerHeight)) ? 60 : 90;
     if (currentDeltaY > threshold) {
       closeFullPlayer();
     } else {
@@ -1288,7 +1288,7 @@
   }, { passive: true });
 
   // Center Vinyl <-> Lyrics Flipping Click Handlers
-  const isLandscapeMode = () => window.innerWidth > window.innerHeight;
+  const isLandscapeMode = () => (window.innerWidth >= 700 && window.innerWidth > window.innerHeight);
   el.vinylStage.addEventListener('click', () => {
     if (!isLandscapeMode()) setPlayerMode('lyrics');
   });
@@ -1828,16 +1828,7 @@
   });
 
   if (el.btnQueuePlayMode) {
-    el.btnQueuePlayMode.addEventListener('click', () => {
-      if (state.playMode === 'sequence') state.playMode = 'loop';
-      else if (state.playMode === 'loop') state.playMode = 'shuffle';
-      else state.playMode = 'sequence';
-
-      updatePlayModeUI();
-      updateQueuePlayModeUI();
-      const labels = { sequence: '列表循环', loop: '单曲循环', shuffle: '随机播放' };
-      toast(`切换为: ${labels[state.playMode]}`);
-    });
+    el.btnQueuePlayMode.addEventListener('click', cyclePlayMode);
   }
 
   // Swipe Down to Dismiss Gesture on Queue Overlay
@@ -1885,6 +1876,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (document.getElementById('playModeDialog')?.open) {
+      closeModeDialog();
+      return true;
+    }
     if (el.appUpdateOverlay && !el.appUpdateOverlay.classList.contains('pointer-events-none')) {
       closeAppUpdateDialog();
       return true;
@@ -2454,7 +2449,7 @@
 
   function handleLyricsUserScroll() {
     if (!isManualUserScrollingLyrics || programmaticScrollLock) return;
-    const isLand = window.innerWidth > window.innerHeight;
+    const isLand = (window.innerWidth >= 700 && window.innerWidth > window.innerHeight);
     if (!isLand && state.playerMode !== 'lyrics') return;
     if (state.lyrics.length === 0) return;
     state.isUserScrollingLyrics = true;
@@ -2654,7 +2649,7 @@
   };
 
   window.addEventListener('resize', () => {
-    const isLand = window.innerWidth > window.innerHeight;
+    const isLand = (window.innerWidth >= 700 && window.innerWidth > window.innerHeight);
     if (isLand) {
       if (el.vinylStage) el.vinylStage.classList.remove('hidden');
       if (el.lyricsStage) el.lyricsStage.classList.remove('hidden');
@@ -3053,6 +3048,9 @@
       if (!isInit && el.pluginUpdateCard) el.pluginUpdateCard.classList.add('hidden');
     }
 
+    document.getElementById('dailyRecSection').classList.toggle('hidden', !isInit);
+    document.getElementById('discoverPlaylistsSection').classList.toggle('hidden', !isInit);
+    document.getElementById('discoverRanksSection').classList.toggle('hidden', !isInit);
     // 4. Discover Banner & Card
     if (el.discoverNoSourceBanner) {
       el.discoverNoSourceBanner.classList.toggle('hidden', isInit);
@@ -4208,53 +4206,33 @@
       return;
     }
 
-    if (state.dailyRecSummary) {
-      if (el.dailyRecTitle) el.dailyRecTitle.textContent = state.dailyRecSummary.title || '每日专属甄选 · 30首';
-      if (el.dailyRecSubtitle) el.dailyRecSubtitle.textContent = state.dailyRecSummary.subtitle || '根据你收藏的歌曲与偏好量身定制';
-      
-      // Render active tags row
-      if (el.dailyRecTagsRow && el.dailyRecTagsList) {
-        const tags = state.dailyRecSummary.tags || [];
-        if (tags.length > 0) {
-          el.dailyRecTagsRow.classList.remove('hidden');
-          el.dailyRecTagsList.innerHTML = tags.map(tag => 
-            `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">${escapeHtml(tag)}</span>`
-          ).join('');
-        } else {
-          el.dailyRecTagsRow.classList.add('hidden');
-        }
-      }
-    }
-
-    if (el.btnPlayAllDailyRecText) {
-      el.btnPlayAllDailyRecText.textContent = `播放全部 (${state.dailyRecTracks.length}首)`;
-    }
+    const count = state.dailyRecTracks.length;
+    el.dailyRecTitle.textContent = '每日精选';
+    el.dailyRecBadgeText.textContent = count + ' 首 · 为你而选';
+    el.dailyRecSubtitle.textContent = state.favorites.length ? '从你的喜欢里，遇见新的旋律。' : '熟悉的心动，也有新的发现。';
+    el.btnPlayAllDailyRecText.textContent = '开始聆听';
+    const heroArtwork = document.getElementById('dailyRecArtwork');
+    heroArtwork.hidden = false;
+    heroArtwork.onerror = () => { heroArtwork.hidden = true; };
+    heroArtwork.src = resolveTrackArtwork(state.dailyRecTracks[0]);
 
     if (el.dailyRecPreviewList) {
       el.dailyRecPreviewList.innerHTML = '';
       const preview = state.dailyRecTracks.slice(0, 3);
       preview.forEach((track, idx) => {
         const item = document.createElement('div');
-        item.className = 'flex items-center justify-between p-2 rounded-xl bg-white/40 hover:bg-white/70 active-squish cursor-pointer transition-colors';
+        item.className = 'discover-track active-squish';
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        item.setAttribute('aria-label', '播放 ' + track.title);
+        item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); } });
         const artist = track.metadata?.artists?.join(' / ') || track.subtitle || '未知歌手';
         const artwork = resolveTrackArtwork(track);
         const fallback = createFallbackCover(track.title, artist);
         item.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0 flex-1">
-            <span class="w-4 text-center text-[12px] font-bold text-primary flex-shrink-0">0${idx + 1}</span>
-            <img src="${artwork}" class="w-8 h-8 rounded-lg object-cover flex-shrink-0 bg-primary/10" onerror="this.onerror=null;this.src='${fallback}'" />
-            <div class="flex flex-col min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[13px] font-bold text-on-surface truncate">${escapeHtml(track.title)}</span>
-                ${track._recTag ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 flex-shrink-0">${escapeHtml(track._recTag)}</span>` : ''}
-              </div>
-              <span class="text-[11px] text-on-surface-variant truncate">${escapeHtml(artist)}</span>
-            </div>
-          </div>
-          <div class="flex items-center gap-1.5 flex-shrink-0">
-            <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-secondary-container/50 text-secondary uppercase">FLAC</span>
-            <span class="material-symbols-outlined text-[20px] text-primary">play_circle</span>
-          </div>
+          <img class="discover-track-cover" src="${escapeHtml(artwork)}" alt="" onerror="this.onerror=null;this.src='${fallback}'" />
+          <div class="discover-track-copy"><strong>${escapeHtml(track.title)}</strong><span>${escapeHtml(artist)}</span></div>
+          <span class="material-symbols-outlined discover-track-play" aria-hidden="true">play_arrow</span>
         `;
         item.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -5001,6 +4979,58 @@
     el.btnExportPlaylist.addEventListener('click', handleExportPlaylistClick);
   }
 
+
+  function refreshSystemSettings() {
+    const status = document.getElementById('notificationStatus');
+    const diagnostic = document.getElementById('mediaDiagnostics');
+    try {
+      if (!window.AndroidBridge?.getMediaDiagnostics) {
+        status.textContent = '在 Android 应用内可查看';
+        diagnostic.textContent = '浏览器预览不连接原生媒体服务';
+        return;
+      }
+      const d = JSON.parse(window.AndroidBridge.getMediaDiagnostics());
+      status.textContent = d.notificationsEnabled ? '通知已允许' : '通知未允许，点此设置';
+      diagnostic.textContent = ['通知：' + (d.notificationsEnabled ? '已允许' : '未允许'), '播放通道：' + (d.channelEnabled ? '已开启' : '未开启'), '媒体会话：' + (d.sessionActive ? '已激活' : '未激活'), '播放：' + (d.playing ? '进行中' : '已暂停'), '前台服务：' + (d.foreground ? '运行中' : '未运行'), '原子岛：请以系统实际显示为准'].join('\n');
+    } catch (_) { diagnostic.textContent = '暂时无法读取，请重试'; }
+  }
+  const modeDialog = document.getElementById('playModeDialog');
+  let modeCloseTimer;
+  function closeModeDialog() {
+    modeDialog.classList.remove('is-open');
+    clearTimeout(modeCloseTimer);
+    modeCloseTimer = setTimeout(() => modeDialog.close(), window.AuraPreferences.get().reduceMotion ? 0 : 180);
+  }
+  document.getElementById('settingPlayMode').addEventListener('click', () => {
+    clearTimeout(modeCloseTimer);
+    modeDialog.showModal();
+    requestAnimationFrame(() => modeDialog.classList.add('is-open'));
+    modeDialog.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+  });
+  document.getElementById('closePlayModeDialog').addEventListener('click', closeModeDialog);
+  modeDialog.addEventListener('cancel', e => { e.preventDefault(); closeModeDialog(); });
+  modeDialog.addEventListener('click', e => { if (e.target === modeDialog) { const r = modeDialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeModeDialog(); } });
+  modeDialog.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { setPlayMode(button.dataset.mode); closeModeDialog(); }));
+  for (const [id,key] of [['settingReduceMotion','reduceMotion'], ['settingReduceTransparency','reduceTransparency']]) {
+    const input = document.getElementById(id);
+    input.checked = window.AuraPreferences.get()[key];
+    input.addEventListener('change', () => {
+      window.AuraPreferences.set({ [key]: input.checked });
+      window.applyAppearancePreferences();
+    });
+  }
+  document.getElementById('btnNotificationSettings').addEventListener('click', () => {
+    if (window.AndroidBridge?.openNotificationSettings) window.AndroidBridge.openNotificationSettings();
+    else toast('请在 Android 应用内打开系统通知设置');
+  });
+  document.getElementById('btnRefreshDiagnostics').addEventListener('click', refreshSystemSettings);
+  window.addEventListener('focus', refreshSystemSettings);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSystemSettings(); });
+  window.onNativeKeyboardChanged = visible => document.documentElement.classList.toggle('keyboard-open', visible);
+  setPlayMode(state.playMode, false);
+  document.documentElement.classList.toggle('no-track', !state.currentTrack);
+  refreshSystemSettings();
+
   // Initialize CeruMusic Engine
   async function initEngine() {
     try {
@@ -5093,20 +5123,19 @@
         el.discoverRankList.innerHTML = '';
         res.items.slice(0, 5).forEach((track, idx) => {
           const div = document.createElement('div');
-          div.className = 'jelly-glass rounded-2xl p-3 flex items-center justify-between gap-3 active-squish cursor-pointer shadow-sm';
+          div.className = 'discover-track rank-track active-squish';
+          div.setAttribute('role', 'button');
+          div.tabIndex = 0;
+          div.setAttribute('aria-label', '播放 ' + track.title);
+          div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); div.click(); } });
           const artists = track.metadata?.artists?.join(' / ') || track.subtitle || '未知歌手';
           const artwork = resolveTrackArtwork(track);
           const fallback = createFallbackCover(track.title, artists);
           div.innerHTML = `
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-              <span class="w-6 text-center text-[15px] font-bold ${idx < 3 ? 'text-primary' : 'text-outline'}">0${idx + 1}</span>
-              <img src="${artwork}" onerror="this.onerror=null;this.src='${fallback}'" class="w-10 h-10 rounded-xl object-cover bg-primary/10" />
-              <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[14px] font-bold text-on-surface truncate">${escapeHtml(track.title)}</span>
-                <span class="text-[12px] text-on-surface-variant truncate">${escapeHtml(artists)}</span>
-              </div>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-secondary-container/40 text-secondary text-[10px] font-bold">FLAC</span>
+            <span class="discover-rank">${String(idx + 1).padStart(2,'0')}</span>
+            <img class="discover-track-cover" src="${escapeHtml(artwork)}" alt="" onerror="this.onerror=null;this.src='${fallback}'" />
+            <div class="discover-track-copy"><strong>${escapeHtml(track.title)}</strong><span>${escapeHtml(artists)}</span></div>
+            <span class="material-symbols-outlined discover-track-play" aria-hidden="true">play_arrow</span>
           `;
           div.addEventListener('click', () => {
             setQueue(res.items, idx, '全网热歌榜单');
@@ -5142,6 +5171,13 @@
     }
   }
   window.loadDiscoverContent = loadDiscoverContent;
+  document.getElementById('btnRefreshRanks').addEventListener('click', async e => {
+    const button = e.currentTarget;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    try { await loadDiscoverContent(); }
+    finally { button.disabled = false; button.removeAttribute('aria-busy'); }
+  });
 
   // Start initialization
   initEngine();

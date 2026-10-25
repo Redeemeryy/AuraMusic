@@ -11,13 +11,20 @@ android {
         applicationId = "com.auramusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.1.6"
+        versionCode = 9
+        versionName = "1.2.0-beta.1"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
+        debug {
+            if (providers.gradleProperty("auraPreview").isPresent) {
+                applicationIdSuffix = ".preview"
+                manifestPlaceholders["appLabel"] = "灵音预览"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

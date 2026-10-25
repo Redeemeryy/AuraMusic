@@ -224,6 +224,10 @@ class MainActivity : AppCompatActivity() {
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
             val density = resources.displayMetrics.density
+            val keyboardVisible = windowInsets.isVisible(WindowInsetsCompat.Type.ime())
+            mainHandler.post {
+                evaluateJavascript("window.onNativeKeyboardChanged && window.onNativeKeyboardChanged($keyboardVisible);")
+            }
             if (density > 0) {
                 currentTopInsetDp = (insets.top / density).toInt()
                 currentBottomInsetDp = (insets.bottom / density).toInt()

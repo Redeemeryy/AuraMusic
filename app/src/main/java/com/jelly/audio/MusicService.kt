@@ -39,6 +39,8 @@ import android.net.wifi.WifiManager
 import androidx.media3.exoplayer.DefaultLoadControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -55,6 +57,9 @@ class MusicService : MediaBrowserServiceCompat() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var isForegroundServiceStarted = false
+    val sessionActive: Boolean get() = mediaSession?.isActive == true
+    val foregroundActive: Boolean get() = isForegroundServiceStarted
+    private var artworkGeneration = 0
 
     private fun acquireLocks() {
         try {
@@ -121,7 +126,7 @@ class MusicService : MediaBrowserServiceCompat() {
 
     var onStateChangedListener: ((Boolean) -> Unit)? = null
     var onTrackCompletedListener: (() -> Unit)? = null
-    private var isSuperxCreated: Boolean = false
+
 
     companion object {
         const val CHANNEL_ID = "aura_audio_playback_v3"
@@ -192,8 +197,17 @@ class MusicService : MediaBrowserServiceCompat() {
         }
         updateMediaSessionState(PlaybackStateCompat.STATE_NONE, 0)
         initExoPlayer()
+        // WebView's JavascriptInterface runs off the player thread and reads this
+        // snapshot. Keep it fresh even when playback has no state transitions.
+        scope.launch {
+            while (isActive) {
+                cachedPosition = player?.currentPosition?.coerceAtLeast(0L)?.toInt() ?: 0
+                delay(250L)
+            }
+        }
     }
 
+    @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
     private fun initExoPlayer() {
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -470,7 +484,8 @@ class MusicService : MediaBrowserServiceCompat() {
         currentArtistName = artist
         lastLyricLine = ""
         currentCoverBitmap = null
-        isSuperxCreated = false
+        artworkGeneration++
+
 
         android.util.Log.d("JellyAudio", "MusicService play via ExoPlayer: $url, title: $title, artist: $artist, duration: $durationMs, isFav: $isCurrentFav")
 
@@ -590,30 +605,11 @@ class MusicService : MediaBrowserServiceCompat() {
     }
 
     private fun stopPlayback() {
+        artworkGeneration++
         player?.stop()
         player?.clearMediaItems()
         isPlaying = false
         releaseLocks()
-        if (isSuperxCreated) {
-            try {
-                val dismissBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_launcher)
-                    .setContentTitle(currentSongTitle)
-                    .setContentText(currentArtistName)
-                    .setPriority(NotificationCompat.PRIORITY_MIN)
-                    .setSilent(true)
-                dismissBuilder.extras.apply {
-                    putInt("notification.superx.operation", 2)
-                    putInt("island.superx.operation", 2)
-                    putBoolean("notification.superx.showNotify", false)
-                    putBoolean("island.superx.showNotify", false)
-                }
-                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                manager.notify(NOTIFICATION_ID, dismissBuilder.build())
-                manager.cancel(NOTIFICATION_ID)
-            } catch (ignored: Exception) {}
-            isSuperxCreated = false
-        }
         if (isForegroundServiceStarted) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             isForegroundServiceStarted = false
@@ -674,20 +670,28 @@ class MusicService : MediaBrowserServiceCompat() {
             return
         }
 
+        // Publish immediately; artwork must never delay the foreground notification.
+        postNotification(title, artist, currentCoverBitmap, playing)
+        val generation = artworkGeneration
         scope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 try {
-                    BitmapFactory.decodeStream(URL(coverUrl).openStream())
+                    val connection = URL(coverUrl).openConnection().apply {
+                        connectTimeout = 8000
+                        readTimeout = 8000
+                    }
+                    connection.getInputStream().use { BitmapFactory.decodeStream(it) }
                 } catch (e: Exception) {
                     null
                 }
             }
+            if (generation != artworkGeneration) return@launch
             currentCoverBitmap = bitmap
 
             val meta = buildMetadata(title, artist, bitmap, isCurrentFav, cachedDuration.toLong(), if (lastLyricLine.isNotEmpty()) lastLyricLine else null)
             mediaSession?.setMetadata(meta)
 
-            postNotification(title, artist, bitmap, playing)
+            postNotification(title, artist, bitmap, isPlaying)
         }
     }
 
@@ -785,83 +789,17 @@ class MusicService : MediaBrowserServiceCompat() {
             builder.setLargeIcon(coverBitmap)
         }
 
-        val op = if (!isSuperxCreated && playing) {
-            isSuperxCreated = true
-            0 // 0: Create atomic capsule
-        } else {
-            1 // 1: Update atomic capsule
-        }
-
-        // 1. Vivo OriginOS 4/5/6 SuperX Capsule (原子岛顶栏实时胶囊)
-        val capsuleBundle = Bundle().apply {
-            putInt("state", if (playing) 1 else 0)
-            putInt("notification.superx.capsule.state", if (playing) 1 else 0)
-            coverBitmap?.let {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val icon = android.graphics.drawable.Icon.createWithBitmap(it)
-                    putParcelable("icon", icon)
-                    putParcelable("notification.superx.capsule.icon", icon)
-                }
-            }
-            putString("title", title)
-            putString("content", title)
-            putString("notification.superx.capsule.content", title)
-            putString("artist", artist)
-            putString("subTitle", artist)
-            putString("notification.superx.capsule.subTitle", artist)
-            putBoolean("isFav", isCurrentFav)
-            putBoolean("notification.superx.capsule.isFav", isCurrentFav)
-            putParcelable("favIntent", favIntent)
-            putParcelable("notification.superx.capsule.favIntent", favIntent)
-            putParcelable("playIntent", toggleIntent)
-            putParcelable("toggleIntent", toggleIntent)
-            putParcelable("nextIntent", nextIntent)
-            putParcelable("prevIntent", prevIntent)
-            putParcelable("clickResp", contentIntent)
-        }
-
-        builder.extras.apply {
-            putBundle("notification.superx.capsule", capsuleBundle)
-            putInt("notification.superx.operation", op)
-            putBoolean("notification.superx.showNotify", true)
-            putString("notification.superx.template", "music")
-            putString("notification.superx.scene", "music")
-            putParcelable("notification.superx.clickResp", contentIntent)
-
-            // Mirror for OriginOS island.superx.* namespace
-            putBundle("island.superx.capsule", capsuleBundle)
-            putInt("island.superx.operation", op)
-            putBoolean("island.superx.showNotify", true)
-            putString("island.superx.template", "music")
-            putString("island.superx.scene", "music")
-            putParcelable("island.superx.clickResp", contentIntent)
-
-            // 2. Vivo OriginOS 4/5/6 Live Notification & Capsule compatibility extras
-            putBoolean("vivo.summaryNotification", true)
-            putString("vivo.liveNotification.type", "music")
-            putString("com.vivo.liveNotification.type", "music")
-            putString("origin.liveNotification.type", "media")
-            putBoolean("vivo.origin.capsule", true)
-            putBoolean("vivo.liveNotification.support", true)
-            putBoolean("origin.capsule.enable", true)
-            putString("origin.capsule.type", "music")
-            putBoolean("vivo.isMusicPlaying", playing)
-            putString("vivo.music.title", title)
-            putString("vivo.music.artist", artist)
-            putLong("vivo.music.duration", cachedDuration.toLong())
-            putBoolean("vivo.music.isFavorite", isCurrentFav)
-            putBoolean("origin.music.favorite", isCurrentFav)
-            putParcelable("vivo.music.favIntent", favIntent)
-            putParcelable("origin.music.favIntent", favIntent)
-            putParcelable("origin.music.toggleIntent", toggleIntent)
-            putParcelable("origin.music.nextIntent", nextIntent)
-            putParcelable("origin.music.prevIntent", prevIntent)
-        }
+        // Standard MediaStyle remains the supported music integration path.
+        // The previous string "music" template was not a valid vivo atomic notification.
+        // Atomic scenes require a documented protocol and vendor admission; do not
+        // send guessed extras that can misclassify a valid media notification.
 
         return builder.build()
     }
 
     override fun onDestroy() {
+        artworkGeneration++
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         releaseLocks()
         player?.release()
         player = null

@@ -30,6 +30,32 @@ class WebAppInterface(private val activity: MainActivity) {
         .build()
 
     @JavascriptInterface
+    fun getMediaDiagnostics(): String {
+        val manager = activity.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channel = manager.getNotificationChannel(MusicService.CHANNEL_ID)
+        return JSONObject().apply {
+            put("notificationsEnabled", androidx.core.app.NotificationManagerCompat.from(activity).areNotificationsEnabled())
+            put("channelEnabled", channel != null && channel.importance != android.app.NotificationManager.IMPORTANCE_NONE)
+            put("sessionActive", activity.musicService?.sessionActive == true)
+            put("playing", activity.musicService?.isPlaying == true)
+            put("foreground", activity.musicService?.foregroundActive == true)
+        }.toString()
+    }
+
+    @JavascriptInterface
+    fun openNotificationSettings() {
+        mainHandler.post {
+            try {
+                activity.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, activity.packageName)
+                })
+            } catch (e: Exception) {
+                Toast.makeText(activity, "请在系统设置中打开灵音的通知权限", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun playMusic(url: String, trackJson: String) {
         mainHandler.post {
             activity.musicService?.play(url, trackJson)

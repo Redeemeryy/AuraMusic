@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="art/logo.png" width="128" height="128" alt="AuraMusic Logo" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+  <img src="app/src/main/assets/web/logo.png" width="128" height="128" alt="AuraMusic Logo" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
 </p>
 
 <h1 align="center">AuraMusic • 灵音</h1>
 
 <p align="center">
   <strong>流光溢彩的高保真开源 Android 音乐播放器</strong><br>
-  Liquid Glass 美学设计 • Hi-Res 母带级音质 • 全网音源插件扩展 • 深度适配 vivo 原子岛
+  Liquid Glass 风格界面 • Hi-Res 音质支持 • 音源插件扩展 • 系统媒体控制
 </p>
 
 <p align="center">
@@ -34,7 +34,7 @@
   - 支持本地脚本文件一键载入、网络直链下载导入、插件状态检测与一键跳转热更新。
 
 - 🏝️ **OriginOS 深度整合与系统级流转**
-  - 专属适配 **vivo OriginOS 4 / OriginOS 5 原子岛 (Origin Island)** 音乐微胶囊与展开态交互。
+  - 使用标准 MediaSession / MediaStyle 系统媒体控制；**vivo 原子岛仍待验证，不保证显示**。
   - 系统级通知栏自适应着色控制中心、双向收藏状态实时同步与锁屏控制无缝流转。
 
 - 📝 **动感歌词与云村高赞热评**
@@ -66,6 +66,21 @@
 ---
 
 ## 📦 项目编译 (Building from Source)
+
+### 本地界面开发（Liquid Glass 改版）
+
+当前改版预发布为 [v1.2.0-beta.1](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.0-beta.1)。附件为独立包名、调试签名的「灵音预览」，不能覆盖正式版；安装与验证范围见[发布说明](docs/releases/v1.2.0-beta.1.md)。
+
+界面样式和图标已随 APK 打包，运行时不再依赖 Tailwind CDN 或 Google Fonts。
+修改 `assets/web` 中 HTML/JS 类名后，先运行 `npm ci`、`npm run build:web`，再构建 APK。
+`npm test` 检查偏好数据行为；`npm run test:ui` 使用本机 Chrome 检查离线页面、五种窗口尺寸和设置持久化。
+
+Windows 中文目录可以使用 `-Pandroid.overridePathCheck=true` 进行构建。
+`-PauraPreview=true` 生成包名为 `com.auramusic.app.preview` 的「灵音预览」，与正式应用共存、数据独立。
+正式覆盖升级必须使用原发布签名，不要为了安装新包卸载已有应用。
+
+本次改版的原子岛仍需 OriginOS 真机验收。已移除不符合 vivo 文档类型的猜测通知载荷；
+标准媒体通知正常，不等于系统一定显示原子岛。详见 `docs/verification-2026-10-25.md`。
 
 ### 环境要求
 - **Android SDK**: Compile SDK 34, Min SDK 26 (Android 8.0+)
