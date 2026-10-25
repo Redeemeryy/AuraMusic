@@ -6,7 +6,8 @@
     "test": "node --test tests/*.test.cjs",
     "test:ui": "node tests/ui.cjs",
     "test:discover": "node tests/discover.cjs",
-    "test:motion": "node tests/motion.cjs"
+    "test:motion": "node tests/motion.cjs",
+    "test:queue": "node tests/queue.cjs"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17",

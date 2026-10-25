@@ -1712,7 +1712,7 @@
   function renderQueueList(isOpening = false) {
     if (!el.queueTotalCount || !el.queueList) return;
     const count = (state.queue || []).length;
-    el.queueTotalCount.textContent = `当前播放队列 (${count})`;
+    el.queueTotalCount.textContent = `待播清单 · ${count}`;
     if (el.queueSourceTag) {
       el.queueSourceTag.textContent = `来源: ${state.queueTitle || '当前播放列表'}`;
     }
@@ -1734,41 +1734,16 @@
     state.queue.forEach((track, idx) => {
       const isCurrent = (idx === state.queueIndex) || (state.currentTrack && state.currentTrack.ref?.id === track.ref?.id);
       const div = document.createElement('div');
-      div.className = `queue-item rounded-2xl p-3 flex items-center justify-between gap-3 active-squish cursor-pointer ${
-        isCurrent 
-          ? 'queue-item-active bg-primary/10 border-2 border-primary shadow-sm' 
-          : 'jelly-glass hover:bg-white/80'
-      }`;
+      div.className = `queue-item ${isCurrent ? 'queue-item-active' : ''}`;
       div.dataset.index = idx;
       const artist = track.metadata?.artists?.join(' / ') || track.subtitle || '未知歌手';
-      const rawQualities = (track.metadata?.qualities || []).map(q => String(q).toLowerCase());
-      const isHiRes = rawQualities.some(q => ['master', 'hires', 'atmos_plus', 'atmos', 'flac24bit'].includes(q));
-      const isFlac = !isHiRes && rawQualities.includes('flac');
-      const qText = isHiRes ? 'Hi-Res' : (isFlac ? 'FLAC' : (rawQualities.includes('320k') ? '320K' : '128K'));
-      const qClass = isHiRes
-        ? 'bg-amber-500/15 text-amber-700 border border-amber-500/30'
-        : (isFlac ? 'bg-secondary-container/50 text-secondary' : 'bg-primary/10 text-primary');
-      const tagText = track._recTag || '';
-
       div.innerHTML = `
-        <div class="flex items-center gap-3 min-w-0 flex-1">
-          <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${isCurrent ? 'bg-primary text-white shadow-xs' : 'bg-primary/10 text-primary'}">
-            <span class="material-symbols-outlined text-[16px] ${isCurrent ? 'animate-pulse' : ''}">${isCurrent ? 'graphic_eq' : 'music_note'}</span>
-          </div>
-          <div class="flex flex-col min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[13px] font-bold ${isCurrent ? 'text-primary' : 'text-on-surface'} truncate">${escapeHtml(track.title)}</span>
-              <span class="px-1 py-0.2 rounded text-[9px] font-bold ${qClass} uppercase">${qText}</span>
-              ${tagText ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 flex-shrink-0">${escapeHtml(tagText)}</span>` : ''}
-            </div>
-            <span class="text-[11px] text-on-surface-variant truncate mt-0.5">${escapeHtml(artist)}</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-1 flex-shrink-0">
-          <button class="btn-remove-track w-8 h-8 rounded-full flex items-center justify-center text-outline hover:text-red-500 active-squish" title="从列表移除">
-            <span class="material-symbols-outlined text-[17px]">close</span>
-          </button>
-        </div>
+        <button class="queue-track-main" aria-label="播放 ${escapeHtml(track.title)}" ${isCurrent ? 'aria-current="true"' : ''}>
+          <img class="queue-cover" src="${escapeHtml(resolveTrackArtwork(track))}" alt="" onerror="this.onerror=null;this.src='${createFallbackCover(track.title, artist)}'" />
+          <span class="queue-copy"><strong>${escapeHtml(track.title)}</strong><small>${escapeHtml(artist)}</small></span>
+          ${isCurrent ? '<span class="material-symbols-outlined queue-current" aria-label="当前曲目">graphic_eq</span>' : ''}
+        </button>
+        <button class="btn-remove-track" aria-label="从队列移除 ${escapeHtml(track.title)}" title="从列表移除"><span class="material-symbols-outlined">close</span></button>
       `;
 
       div.addEventListener('click', (e) => {
