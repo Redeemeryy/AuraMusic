@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Keep signing material outside the repository; CI may provide another path.
+val releaseSigningFile = providers.environmentVariable("AURA_SIGNING_PROPERTIES")
+    .orNull?.let { file(it) }
+    ?: rootProject.projectDir.parentFile.resolve("signing/AuraMusic/signing.properties")
+val releaseSigning = Properties().apply {
+    if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
+}
+val hasReleaseSigning = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !releaseSigning.getProperty(it).isNullOrBlank() }
 
 android {
     namespace = "com.jelly.audio"
@@ -11,13 +23,23 @@ android {
         applicationId = "com.auramusic.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.2.0-beta.1"
+        versionCode = 10
+        versionName = "1.2.0-beta.2"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseSigning.getProperty("storeFile"))
+                storePassword = releaseSigning.getProperty("storePassword")
+                keyAlias = releaseSigning.getProperty("keyAlias")
+                keyPassword = releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         debug {
             if (providers.gradleProperty("auraPreview").isPresent) {
@@ -26,6 +48,7 @@ android {
             }
         }
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -39,6 +62,13 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+// Never accidentally distribute an unsigned release when local secrets are absent.
+gradle.taskGraph.whenReady {
+    if (!hasReleaseSigning && allTasks.any { it.name == "packageRelease" || it.name == "signReleaseBundle" }) {
+        throw GradleException("Release signing is missing. Set AURA_SIGNING_PROPERTIES to an external signing.properties file.")
     }
 }
 

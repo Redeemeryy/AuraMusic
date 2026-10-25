@@ -69,7 +69,7 @@
 
 ### 本地界面开发（Liquid Glass 改版）
 
-当前改版预发布为 [v1.2.0-beta.1](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.0-beta.1)。附件为独立包名、调试签名的「灵音预览」，不能覆盖正式版；安装与验证范围见[发布说明](docs/releases/v1.2.0-beta.1.md)。
+当前改版预发布为 [v1.2.0-beta.2](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.0-beta.2)，使用固定发布签名及正式包名。与调试签名「灵音预览」数据独立；安装方式见[发布说明](docs/releases/v1.2.0-beta.2.md)，构建配置与密钥备份见[发布签名说明](docs/release-signing.md)。
 
 界面样式和图标已随 APK 打包，运行时不再依赖 Tailwind CDN 或 Google Fonts。
 修改 `assets/web` 中 HTML/JS 类名后，先运行 `npm ci`、`npm run build:web`，再构建 APK。
@@ -77,7 +77,7 @@
 
 Windows 中文目录可以使用 `-Pandroid.overridePathCheck=true` 进行构建。
 `-PauraPreview=true` 生成包名为 `com.auramusic.app.preview` 的「灵音预览」，与正式应用共存、数据独立。
-正式覆盖升级必须使用原发布签名，不要为了安装新包卸载已有应用。
+覆盖升级必须使用同一签名；beta.2 开始采用新的固定发布密钥，不要为了安装新包直接卸载已有测试应用。
 
 本次改版的原子岛仍需 OriginOS 真机验收。已移除不符合 vivo 文档类型的猜测通知载荷；
 标准媒体通知正常，不等于系统一定显示原子岛。详见 `docs/verification-2026-10-25.md`。
