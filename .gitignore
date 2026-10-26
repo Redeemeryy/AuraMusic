@@ -16,6 +16,7 @@ gen/
 out/
 build/
 app/build/
+app/src/main/assets/update-base.json
 
 # Gradle files
 .gradle/

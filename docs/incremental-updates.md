@@ -23,7 +23,7 @@
 
 依赖 Node.js、JDK 17+、Android SDK。正式签名配置见 [发布签名说明](release-signing.md)。以下命令从仓库根目录运行，签名路径通过环境变量传入。
 
-Gradle `preBuild` 自动生成 `app/src/main/assets/update-base.json`，与本次打包的网页字节保持一致。新原生版本应提高 Android `versionCode`；如内置网页版本已迭代，应同时使用 `-PauraWebVersion=N` 提高网页版本。
+Gradle `preBuild` 自动生成 `app/src/main/assets/update-base.json`，与本次打包的网页字节保持一致。该文件不纳入 Git，避免不同平台换行符导致过期哈希；发布时保留工具输出的 `web-base.json` 作为下一版基准。新原生版本应提高 Android `versionCode`；如内置网页版本已迭代，应同时使用 `-PauraWebVersion=N` 提高网页版本。
 
 ```powershell
 $env:AURA_SIGNING_PROPERTIES = '外部目录/signing.properties'
