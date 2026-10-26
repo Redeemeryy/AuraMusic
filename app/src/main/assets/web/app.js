@@ -937,7 +937,16 @@
   }
 
   // Play Track
+  let playRequestId = 0;
+  let pendingNativeTrackKey = null;
   async function playTrack(track, queue = null, queueTitle = null) {
+    const requestId = ++playRequestId;
+    const lyricTrackKey = JSON.stringify([track.ref?.providerId || '', track.ref?.id || track.title, requestId]);
+    state.lyricTrackKey = lyricTrackKey;
+    pendingNativeTrackKey = lyricTrackKey;
+    ++lyricRequestId;
+    state.lyrics = [];
+    state.currentLyricIndex = -1;
     if (queue) {
       state.queue = queue;
       state.queueIndex = queue.findIndex(t => t.ref?.id === track.ref?.id);
@@ -975,6 +984,7 @@
 
     try {
       const resolved = await resolveStreamWithFallback(track, state.preferredQuality, track.metadata?.qualities);
+      if (requestId !== playRequestId) return;
       console.log('[APP] Resolved audio URL:', resolved.url, 'actual quality:', resolved.actualQuality);
       if (!resolved || !resolved.url) {
         throw new Error('未能解析到有效音频播放直链');
@@ -990,11 +1000,18 @@
       const artwork = resolveTrackArtwork(track);
 
       const trackInfo = {
+        id: track.ref?.id,
+        ref: track.ref,
+        subtitle: track.subtitle,
+        metadata: track.metadata,
         title: track.title,
         artist: artists,
         coverUrl: artwork,
         duration: track.metadata?.durationMs || 0,
-        isFavorite: isCurrentFav()
+        isFavorite: isCurrentFav(),
+        bluetoothLyrics: window.AuraPreferences.get().bluetoothLyrics,
+        lyricTrackKey,
+        lyricsTimeline: []
       };
 
       if (window.AndroidBridge && typeof window.AndroidBridge.playMusic === 'function') {
@@ -1002,6 +1019,8 @@
         if (typeof window.AndroidBridge.updateFavoriteState === 'function') {
           window.AndroidBridge.updateFavoriteState(isCurrentFav());
         }
+      } else {
+        pendingNativeTrackKey = null;
       }
 
       state.isPlaying = true;
@@ -1011,10 +1030,13 @@
       addToHistory(track);
 
       // Load Lyrics
-      loadLyrics(track);
+      loadLyrics(track, lyricTrackKey);
 
     } catch (err) {
+      if (requestId !== playRequestId) return;
+      pendingNativeTrackKey = null;
       updatePlayState(false);
+      syncPlaybackFromNative();
       toast('播放失败: ' + (err.message || '网络异常'));
       console.error('Resolve error:', err);
     }
@@ -1962,6 +1984,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (document.getElementById('pluginRemoveDialog')?.open) {
+      closePluginRemoveDialog();
+      return true;
+    }
     if (el.qualityModalOverlay?.classList.contains('active')) {
       closeQualityPickerModal();
       return true;
@@ -1976,6 +2002,10 @@
     }
     if (el.pluginNoticeOverlay && !el.pluginNoticeOverlay.classList.contains('pointer-events-none')) {
       closePluginNoticeDialog();
+      return true;
+    }
+    if (el.pluginModalOverlay && !el.pluginModalOverlay.classList.contains('translate-y-full')) {
+      closePluginModal();
       return true;
     }
     if (el.importPlaylistOverlay && !el.importPlaylistOverlay.classList.contains('translate-y-full')) {
@@ -2390,16 +2420,15 @@
     return typeof t === 'string' && t.trim().length > 10;
   }
 
-  async function loadLyrics(track) {
+  async function loadLyrics(track, lyricTrackKey) {
     const currentReqId = ++lyricRequestId;
-    const targetTrackId = track.ref?.id || track.title;
     el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-on-surface-variant/60 font-medium my-auto">正在加载同步歌词...</div>';
     state.lyrics = [];
     state.currentLyricIndex = -1;
 
     try {
       let res = await window.MusicAPI.getLyrics(track.ref);
-      if (currentReqId !== lyricRequestId || (state.currentTrack && state.currentTrack.ref?.id !== targetTrackId)) return;
+      if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
 
       // Cross-platform fallback if lyrics are empty
       if (!hasValidLyrics(res)) {
@@ -2418,12 +2447,17 @@
         }
       }
 
-      if (currentReqId !== lyricRequestId || (state.currentTrack && state.currentTrack.ref?.id !== targetTrackId)) return;
+      if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
 
       parseLyrics(res);
+      // Hand the full timeline to the service once. It follows the player's clock
+      // even when Android suspends WebView timers in the background.
+      if (window.AndroidBridge?.setLyricTimeline) {
+        window.AndroidBridge.setLyricTimeline(lyricTrackKey, JSON.stringify(state.lyrics));
+      }
       renderLyrics();
     } catch (e) {
-      if (currentReqId !== lyricRequestId) return;
+      if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
       el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-outline font-medium my-auto">纯音乐或暂无歌词</div>';
     }
   }
@@ -2442,7 +2476,7 @@
           endTime: (line.endTimeMs || 0) / 1000,
           text: text.trim()
         };
-      }).filter(l => l.text);
+      }).filter(l => Number.isFinite(l.time) && l.time >= 0).sort((a, b) => a.time - b.time);
       if (state.lyrics.length > 0) return;
     }
 
@@ -2490,9 +2524,7 @@
       if (qrcMatch) {
         const time = parseInt(qrcMatch[1]) / 1000;
         const cleanText = qrcMatch[3].replace(/\(\d+,\d+\)/g, '').trim();
-        if (cleanText) {
-          state.lyrics.push({ time, text: cleanText });
-        }
+        state.lyrics.push({ time, endTime: time + parseInt(qrcMatch[2]) / 1000, text: cleanText });
         continue;
       }
 
@@ -2500,14 +2532,12 @@
       const timestampMatches = [...trimmed.matchAll(/\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
       if (timestampMatches.length > 0) {
         const cleanText = trimmed.replace(/\[\d{2}:\d{2}(?:\.\d{1,3})?\]/g, '').trim();
-        if (cleanText) {
-          for (const m of timestampMatches) {
-            const min = parseInt(m[1]);
-            const sec = parseInt(m[2]);
-            const ms = m[3] ? parseInt(m[3].padEnd(3, '0')) : 0;
-            const time = min * 60 + sec + ms / 1000;
-            state.lyrics.push({ time, text: cleanText });
-          }
+        for (const m of timestampMatches) {
+          const min = parseInt(m[1]);
+          const sec = parseInt(m[2]);
+          const ms = m[3] ? parseInt(m[3].padEnd(3, '0')) : 0;
+          const time = min * 60 + sec + ms / 1000;
+          state.lyrics.push({ time, text: cleanText });
         }
       }
     }
@@ -2677,7 +2707,7 @@
       const p = document.createElement('p');
       p.id = 'lyric-line-' + idx;
       p.className = 'lyric-line text-[16px] text-on-surface-variant/50 font-semibold py-1.5 cursor-pointer';
-      p.textContent = item.text;
+      p.textContent = item.text || '♪';
       p.dataset.time = String(item.time);
       p.dataset.index = String(idx);
       p.addEventListener('click', (e) => {
@@ -2723,7 +2753,7 @@
 
       // Bluetooth Car AVRCP lyric push
       const currentLyricText = (activeIdx >= 0 && state.lyrics[activeIdx]) ? (state.lyrics[activeIdx].text || '') : '';
-      if (window.AndroidBridge && typeof window.AndroidBridge.updateCurrentLyric === 'function') {
+      if (!window.AndroidBridge?.setLyricTimeline && typeof window.AndroidBridge?.updateCurrentLyric === 'function') {
         try {
           window.AndroidBridge.updateCurrentLyric(currentLyricText);
         } catch (e) {
@@ -2815,14 +2845,29 @@
   };
 
   function syncPlaybackFromNative() {
+    window.syncBluetoothLyricsPreference?.();
     if (window.AndroidBridge && typeof window.AndroidBridge.getPlaybackState === 'function') {
       try {
         const raw = window.AndroidBridge.getPlaybackState();
         const pb = JSON.parse(raw);
+        // playMusic is posted to the Android main thread. Until it acknowledges
+        // this identity, focus/service callbacks may still describe the old song.
+        if (pendingNativeTrackKey) {
+          if (pb?.track?.lyricTrackKey !== pendingNativeTrackKey) return;
+          pendingNativeTrackKey = null;
+        }
         if (pb && pb.track) {
-          const trackChanged = !state.currentTrack || (state.currentTrack.ref && pb.track.ref && state.currentTrack.ref.id !== pb.track.ref.id);
+          const trackChanged = !state.currentTrack ||
+            state.currentTrack.ref?.id !== pb.track.ref?.id ||
+            state.currentTrack.ref?.providerId !== pb.track.ref?.providerId ||
+            state.lyricTrackKey !== pb.track.lyricTrackKey;
           if (trackChanged) {
+            ++lyricRequestId;
             state.currentTrack = pb.track;
+            state.lyricTrackKey = pb.track.lyricTrackKey;
+            state.lyrics = Array.isArray(pb.track.lyricsTimeline) ? pb.track.lyricsTimeline : [];
+            state.currentLyricIndex = -1;
+            renderLyrics();
             updateMiniPlayer(state.currentTrack);
             updateFullPlayer(state.currentTrack);
             updateFavHeart();
@@ -3014,8 +3059,10 @@
   }
 
   // Handle Quality Option Selection (Seamless audio re-resolution at currentTime)
+  let qualityRequestId = 0;
   document.querySelectorAll('.quality-picker-option').forEach(opt => {
     opt.addEventListener('click', async () => {
+      const requestId = ++qualityRequestId;
       const chosenQ = opt.getAttribute('data-quality');
       closeQualityPickerModal();
 
@@ -3028,11 +3075,18 @@
       try { localStorage.setItem('jelly_preferred_quality', chosenQ); } catch (e) {}
 
       if (state.currentTrack) {
+        if (!state.lyricTrackKey) {
+          await playTrack(state.currentTrack);
+          return;
+        }
         toast('正在切换为 ' + getQualityInfo(chosenQ).short + ' 音质...');
 
         const currentPos = state.currentTime;
+        const qualityTrack = state.currentTrack;
+        const qualityTrackKey = state.lyricTrackKey;
         try {
-          const resolved = await resolveStreamWithFallback(state.currentTrack, chosenQ, state.currentTrack.metadata?.qualities);
+          const resolved = await resolveStreamWithFallback(qualityTrack, chosenQ, qualityTrack.metadata?.qualities);
+          if (requestId !== qualityRequestId || qualityTrackKey !== state.lyricTrackKey || qualityTrack !== state.currentTrack) return;
           if (resolved && resolved.url) {
             const actualQ = resolved.actualQuality || chosenQ;
             state.currentQuality = actualQ;
@@ -3044,17 +3098,25 @@
             const artists = state.currentTrack.metadata?.artists?.join(' / ') || state.currentTrack.subtitle || '未知歌手';
             const artwork = resolveTrackArtwork(state.currentTrack);
             const trackInfo = {
+              id: state.currentTrack.ref?.id,
+              ref: state.currentTrack.ref,
+              subtitle: state.currentTrack.subtitle,
+              metadata: state.currentTrack.metadata,
               title: state.currentTrack.title,
               artist: artists,
               coverUrl: artwork,
               duration: state.currentTrack.metadata?.durationMs || 0,
-              isFavorite: isCurrentFav()
+              isFavorite: isCurrentFav(),
+              bluetoothLyrics: window.AuraPreferences.get().bluetoothLyrics,
+              lyricTrackKey: qualityTrackKey,
+              lyricsTimeline: state.lyrics
             };
             if (window.AndroidBridge && typeof window.AndroidBridge.playMusic === 'function') {
               window.AndroidBridge.playMusic(resolved.url, JSON.stringify(trackInfo));
             }
             if (currentPos > 1 && window.AndroidBridge && typeof window.AndroidBridge.seekTo === 'function') {
               setTimeout(() => {
+                if (requestId !== qualityRequestId || qualityTrackKey !== state.lyricTrackKey) return;
                 try { window.AndroidBridge.seekTo(Math.floor(currentPos * 1000)); } catch (e) {}
               }, 300);
             }
@@ -3066,6 +3128,7 @@
             }
           }
         } catch (err) {
+          if (requestId !== qualityRequestId || qualityTrackKey !== state.lyricTrackKey || qualityTrack !== state.currentTrack) return;
           toast('播放失败: ' + (err.message || '网络连接异常'));
         }
       } else {
@@ -3089,7 +3152,7 @@
 
     const name = meta?.name || window.MusicAPI?.manifest?.name || '自定义音源';
     const version = meta?.version || window.MusicAPI?.manifest?.version || '1.0.0';
-    const desc = meta?.description || window.MusicAPI?.manifest?.description || '已聚合主流平台全音质直通解析。';
+    const desc = meta?.description || window.MusicAPI?.manifest?.description || '音源已加载，可以开始搜索和播放。';
     const updateUrl = meta?.updateUrl || meta?.homepage || '';
 
     // 1. Header Source Badge
@@ -3130,28 +3193,32 @@
     }
 
     // 3. Plugin Modal
+    if (el.pluginModalOverlay) el.pluginModalOverlay.dataset.sourceState = isInit ? 'ready' : 'empty';
     if (el.pluginActiveIconBg) {
-      el.pluginActiveIconBg.className = isInit 
-        ? 'w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-md'
-        : 'w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-sm';
+      el.pluginActiveIconBg.className = 'source-icon-tile';
     }
     if (el.pluginActiveName) {
-      el.pluginActiveName.textContent = isInit ? name : '未导入音源';
+      el.pluginActiveName.textContent = isInit ? name : '尚未添加音源';
     }
     if (el.pluginActiveStatusTag) {
-      el.pluginActiveStatusTag.textContent = isInit ? '运行中' : '待配置';
-      el.pluginActiveStatusTag.className = isInit 
-        ? 'px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold'
-        : 'px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold';
+      el.pluginActiveStatusTag.textContent = isInit ? '已连接' : '待添加';
+      el.pluginActiveStatusTag.className = 'source-status';
     }
     if (el.pluginActiveVersion) {
-      el.pluginActiveVersion.textContent = isInit ? `版本: v${version} • CeruMusic Engine v2` : '暂未配置音源脚本';
+      el.pluginActiveVersion.textContent = isInit ? `版本 ${version}` : '从下方选择一种方式导入';
     }
     if (el.pluginActiveDesc) {
-      el.pluginActiveDesc.textContent = isInit ? desc : '当前未加载任何音乐源插件。请从下方导入音源脚本以开启全网无损播放与搜索。';
+      el.pluginActiveDesc.textContent = isInit ? desc : '导入兼容的音源脚本后，即可搜索和播放音乐。';
     }
     if (el.pluginActivePlatforms) {
-      el.pluginActivePlatforms.classList.toggle('hidden', !isInit);
+      const labels = { tx: 'QQ音乐', wy: '网易云', kg: '酷狗', kw: '酷我', mg: '咪咕' };
+      const providers = isInit ? Array.from(window.MusicAPI?.providers?.keys?.() || []) : [];
+      el.pluginActivePlatforms.replaceChildren(...providers.map(id => {
+        const badge = document.createElement('span');
+        badge.textContent = labels[id] || id;
+        return badge;
+      }));
+      el.pluginActivePlatforms.classList.toggle('hidden', !providers.length);
     }
     if (el.pluginActiveActions) {
       el.pluginActiveActions.classList.toggle('hidden', !isInit);
@@ -3183,16 +3250,25 @@
   }
   window.syncPluginUI = syncPluginUI;
 
+  let pluginManagerReturnFocus = null;
   function openPluginModal() {
     if (!el.pluginModalOverlay) return;
+    pluginManagerReturnFocus = document.activeElement;
     syncPluginUI();
+    el.pluginModalOverlay.inert = false;
+    el.pluginModalOverlay.setAttribute('aria-hidden', 'false');
     el.pluginModalOverlay.classList.remove('translate-y-full');
+    el.btnClosePluginModal?.focus({ preventScroll: true });
     if (el.miniPlayer) el.miniPlayer.classList.add('in-subpage');
   }
 
   function closePluginModal() {
     if (!el.pluginModalOverlay) return;
+    closePluginRemoveDialog();
     el.pluginModalOverlay.classList.add('translate-y-full');
+    el.pluginModalOverlay.inert = true;
+    el.pluginModalOverlay.setAttribute('aria-hidden', 'true');
+    pluginManagerReturnFocus?.focus?.({ preventScroll: true });
     if (el.miniPlayer && (!el.playlistDetailOverlay || el.playlistDetailOverlay.classList.contains('translate-y-full')) && (!el.importPlaylistOverlay || el.importPlaylistOverlay.classList.contains('translate-y-full'))) {
       el.miniPlayer.classList.remove('in-subpage');
     }
@@ -3215,6 +3291,7 @@
   // CeruMusic Plugin Notice & Live Update System
   // ==========================================
   let activePluginNotice = null;
+  let pluginNoticeReturnFocus = null;
   const seenPluginUpdateVersions = new Set();
 
   function showPluginNoticeDialog(noticeData) {
@@ -3253,12 +3330,16 @@
     }
 
     // Show modal with animation
+    pluginNoticeReturnFocus = document.activeElement;
+    el.pluginNoticeOverlay.inert = false;
+    el.pluginNoticeOverlay.setAttribute('aria-hidden', 'false');
     el.pluginNoticeOverlay.classList.remove('pointer-events-none', 'opacity-0');
     el.pluginNoticeOverlay.classList.add('opacity-100');
     if (el.pluginNoticeCard) {
       el.pluginNoticeCard.classList.remove('scale-95');
       el.pluginNoticeCard.classList.add('scale-100');
     }
+    el.btnCancelPluginUpdate?.focus({ preventScroll: true });
   }
 
   function closePluginNoticeDialog() {
@@ -3269,14 +3350,39 @@
     }
     el.pluginNoticeOverlay.classList.remove('opacity-100');
     el.pluginNoticeOverlay.classList.add('opacity-0', 'pointer-events-none');
+    el.pluginNoticeOverlay.inert = true;
+    el.pluginNoticeOverlay.setAttribute('aria-hidden', 'true');
     if (el.pluginNoticeCard) {
       el.pluginNoticeCard.classList.remove('scale-100');
       el.pluginNoticeCard.classList.add('scale-95');
     }
+    pluginNoticeReturnFocus?.focus?.({ preventScroll: true });
   }
 
   window.showPluginNoticeDialog = showPluginNoticeDialog;
   window.closePluginNoticeDialog = closePluginNoticeDialog;
+
+  // Keep keyboard navigation inside the active source surface.
+  document.addEventListener('keydown', event => {
+    if (document.getElementById('pluginRemoveDialog')?.open) return;
+    const noticeOpen = el.pluginNoticeOverlay && !el.pluginNoticeOverlay.inert;
+    const managerOpen = el.pluginModalOverlay && !el.pluginModalOverlay.inert;
+    const surface = noticeOpen ? el.pluginNoticeOverlay : managerOpen ? el.pluginModalOverlay : null;
+    if (!surface) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      noticeOpen ? closePluginNoticeDialog() : closePluginModal();
+    } else if (event.key === 'Tab') {
+      const controls = Array.from(surface.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex="0"]'))
+        .filter(node => node.getClientRects().length && !node.closest('[inert]'));
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !surface.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !surface.contains(document.activeElement))) {
+        event.preventDefault(); first?.focus();
+      }
+    }
+  });
 
   async function performPluginUpdate(url, newVersion) {
     if (!url) {
@@ -3688,9 +3794,22 @@
     });
   }
 
+  function markPluginButtonBusy(button, label) {
+    const content = button.innerHTML;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.textContent = label;
+    return () => {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.innerHTML = content;
+    };
+  }
+
   // Reload Plugin
   if (el.btnReloadPlugin) {
     el.btnReloadPlugin.addEventListener('click', async () => {
+      const finish = markPluginButtonBusy(el.btnReloadPlugin, '加载中…');
       toast('正在重新加载音源引擎...');
       try {
         const savedCode = localStorage.getItem('jelly_custom_plugin_code');
@@ -3707,13 +3826,30 @@
         }
       } catch (err) {
         toast('重载音源失败: ' + err.message);
-      }
+      } finally { finish(); }
     });
   }
 
   // Uninstall / Clear Plugin
+  const pluginRemoveDialog = document.getElementById('pluginRemoveDialog');
+  function closePluginRemoveDialog() {
+    if (!pluginRemoveDialog?.open) return;
+    pluginRemoveDialog.close();
+    el.btnUninstallPlugin?.focus({ preventScroll: true });
+  }
+  document.getElementById('btnCancelPluginRemove')?.addEventListener('click', closePluginRemoveDialog);
+  pluginRemoveDialog?.addEventListener('cancel', event => { event.preventDefault(); closePluginRemoveDialog(); });
+  pluginRemoveDialog?.addEventListener('click', event => {
+    if (event.target !== pluginRemoveDialog) return;
+    const bounds = pluginRemoveDialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closePluginRemoveDialog();
+  });
   if (el.btnUninstallPlugin) {
     el.btnUninstallPlugin.addEventListener('click', () => {
+      if (!pluginRemoveDialog?.open) pluginRemoveDialog?.showModal();
+    });
+  }
+  document.getElementById('btnConfirmPluginRemove')?.addEventListener('click', () => {
       localStorage.removeItem('jelly_custom_plugin_code');
       localStorage.removeItem('jelly_custom_plugin_meta');
       window.MusicAPI.reset();
@@ -3723,9 +3859,10 @@
       syncPluginUI();
       if (el.discoverRankList) el.discoverRankList.innerHTML = '';
       if (el.discoverPlaylists) el.discoverPlaylists.innerHTML = '';
+      closePluginRemoveDialog();
+      el.btnImportFromFile?.focus({ preventScroll: true });
       toast('已清空并卸载当前音源插件');
-    });
-  }
+  });
 
   // Native plugin file loaded callback
   window.onPluginFileLoaded = async function (code, fileName) {
@@ -3794,6 +3931,7 @@
         return;
       }
       toast('正在下载音源插件脚本...');
+      const finish = markPluginButtonBusy(el.btnImportFromUrl, '导入中…');
       try {
         const resp = await fetch(url);
         const code = await resp.text();
@@ -3801,7 +3939,7 @@
         el.inputPluginUrl.value = '';
       } catch (e) {
         toast('导入插件失败: ' + (e.message || '网络无法访问'));
-      }
+      } finally { finish(); }
     });
   }
 
@@ -3813,12 +3951,13 @@
         toast('请粘贴音源插件代码');
         return;
       }
+      const finish = markPluginButtonBusy(el.btnImportFromCode, '加载中…');
       try {
         await evalPluginCode(code, true);
         el.inputPluginCode.value = '';
       } catch (e) {
         toast(e.message);
-      }
+      } finally { finish(); }
     });
   }
 
@@ -5202,6 +5341,19 @@
       window.applyAppearancePreferences();
     });
   }
+  const bluetoothLyricsSwitch = document.getElementById('settingBluetoothLyrics');
+  window.syncBluetoothLyricsPreference = function () {
+    const enabled = window.AuraPreferences.get().bluetoothLyrics;
+    bluetoothLyricsSwitch.checked = enabled;
+    try { window.AndroidBridge?.setBluetoothLyricsEnabled?.(enabled); } catch (e) {
+      console.warn('Bluetooth lyric preference sync failed:', e);
+    }
+  };
+  bluetoothLyricsSwitch.addEventListener('change', () => {
+    window.AuraPreferences.set({ bluetoothLyrics: bluetoothLyricsSwitch.checked });
+    window.syncBluetoothLyricsPreference();
+  });
+  window.syncBluetoothLyricsPreference();
   document.getElementById('btnNotificationSettings').addEventListener('click', () => {
     if (window.AndroidBridge?.openNotificationSettings) window.AndroidBridge.openNotificationSettings();
     else toast('请在 Android 应用内打开系统通知设置');

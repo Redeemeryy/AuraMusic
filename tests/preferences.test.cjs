@@ -14,12 +14,12 @@ test('invalid saved preferences recover without touching the library', () => {
 test('mode and accessibility choices survive a new session', () => {
   const s = storage();
   createPreferences(s).set({ playMode: 'shuffle', reduceMotion: true, reduceTransparency: true });
-  assert.deepEqual(createPreferences(s).get(), { playMode: 'shuffle', reduceMotion: true, reduceTransparency: true });
+  assert.deepEqual(createPreferences(s).get(), { playMode: 'shuffle', reduceMotion: true, reduceTransparency: true, bluetoothLyrics: false });
 });
 test('unknown modes and incorrectly typed flags cannot enter app state', () => {
   const p = createPreferences(storage());
   p.set({ playMode: 'bad', reduceMotion: 'false', reduceTransparency: 1 });
-  assert.deepEqual(p.get(), { playMode: 'sequence', reduceMotion: false, reduceTransparency: false });
+  assert.deepEqual(p.get(), { playMode: 'sequence', reduceMotion: false, reduceTransparency: false, bluetoothLyrics: false });
 });
 test('history removal preserves plugin, favorites and queue', () => {
   const s = storage({ jelly_history: '[1]', jelly_favs: '[2]', jelly_queue: '[3]', jelly_custom_plugin_code: 'code' });
@@ -32,4 +32,16 @@ test('history removal preserves plugin, favorites and queue', () => {
 test('blocked storage keeps current-session changes usable', () => {
   const p = createPreferences({ getItem() { throw Error(); }, setItem() { throw Error(); } });
   assert.equal(p.set({ playMode: 'loop' }).playMode, 'loop');
+});
+
+test('Bluetooth lyric choice defaults off, persists independently, and rejects string flags', () => {
+  const s = storage({ jelly_favs: '[1]', aura_preferences: JSON.stringify({ reduceMotion: true }) });
+  const p = createPreferences(s);
+  assert.equal(p.get().bluetoothLyrics, false);
+  p.set({ bluetoothLyrics: true });
+  assert.equal(createPreferences(s).get().bluetoothLyrics, true);
+  assert.equal(createPreferences(s).get().reduceMotion, true);
+  p.set({ bluetoothLyrics: 'true' });
+  assert.equal(p.get().bluetoothLyrics, false);
+  assert.equal(s.getItem('jelly_favs'), '[1]');
 });

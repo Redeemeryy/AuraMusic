@@ -91,6 +91,16 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun setBluetoothLyricsEnabled(enabled: Boolean) {
+        mainHandler.post { activity.musicService?.setBluetoothLyricsEnabled(enabled) }
+    }
+
+    @JavascriptInterface
+    fun setLyricTimeline(trackKey: String, linesJson: String) {
+        mainHandler.post { activity.musicService?.setLyricTimeline(trackKey, linesJson) }
+    }
+
+    @JavascriptInterface
     fun getSystemInsets(): String {
         return try {
             val json = JSONObject()

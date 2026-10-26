@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.json.JSONObject
+import org.json.JSONArray
 import java.net.URL
 import java.util.concurrent.TimeUnit
 
@@ -60,6 +61,9 @@ class MusicService : MediaBrowserServiceCompat() {
     val sessionActive: Boolean get() = mediaSession?.isActive == true
     val foregroundActive: Boolean get() = isForegroundServiceStarted
     private var artworkGeneration = 0
+    private val playbackLyrics = PlaybackLyrics()
+    private var usesNativeLyricTimeline = false
+    val bluetoothLyricsEnabled: Boolean get() = playbackLyrics.enabled
 
     private fun acquireLocks() {
         try {
@@ -192,6 +196,7 @@ class MusicService : MediaBrowserServiceCompat() {
 
     override fun onCreate() {
         super.onCreate()
+        playbackLyrics.setEnabled(getSharedPreferences("playback", Context.MODE_PRIVATE).getBoolean("bluetoothLyrics", false))
         createNotificationChannel()
         initMediaSession()
         mediaSession?.sessionToken?.let { token ->
@@ -204,6 +209,7 @@ class MusicService : MediaBrowserServiceCompat() {
         scope.launch {
             while (isActive) {
                 cachedPosition = player?.currentPosition?.coerceAtLeast(0L)?.toInt() ?: 0
+                if (usesNativeLyricTimeline && isPlaying) syncNativeLyric(cachedPosition.toLong())
                 delay(250L)
             }
         }
@@ -258,6 +264,8 @@ class MusicService : MediaBrowserServiceCompat() {
                             }
                             val pos = currentPosition.toLong()
                             cachedPosition = pos.toInt()
+                            syncNativeLyric(pos)
+                            refreshMetadata()
                             updateMediaSessionState(
                                 if (playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
                                 pos
@@ -274,10 +282,14 @@ class MusicService : MediaBrowserServiceCompat() {
                             }
                             Player.STATE_READY -> {
                                 val dur = duration.toInt()
-                                cachedDuration = dur
+                                if (dur > 0 && cachedDuration != dur) {
+                                    cachedDuration = dur
+                                    refreshMetadata()
+                                }
                             }
                             Player.STATE_ENDED -> {
                                 this@MusicService.isPlaying = false
+                                refreshMetadata()
                                 releaseLocks()
                                 updateMediaSessionState(PlaybackStateCompat.STATE_PAUSED, currentDuration.toLong())
                                 onStateChangedListener?.invoke(false)
@@ -290,6 +302,7 @@ class MusicService : MediaBrowserServiceCompat() {
                     override fun onPlayerError(error: PlaybackException) {
                         android.util.Log.e("JellyAudio", "ExoPlayer playback error: ${error.errorCodeName}", error)
                         this@MusicService.isPlaying = false
+                        refreshMetadata()
                         releaseLocks()
                         onStateChangedListener?.invoke(false)
                     }
@@ -432,11 +445,14 @@ class MusicService : MediaBrowserServiceCompat() {
     ): MediaMetadataCompat {
         val heartRating = RatingCompat.newHeartRating(isFav)
         val subtitle = lyricSubtitle ?: artist
+        // AVRCP readers consume TITLE/ARTIST. Keep DISPLAY_TITLE and our notification
+        // title as the song name while compatible car displays receive the current line.
+        val remoteText = playbackLyrics.remoteText(title, artist, isPlaying, lastLyricLine)
         val builder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, currentTrackId.ifEmpty { "current_track_id" })
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
-            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
-            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "果冻音乐")
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, remoteText.title)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, remoteText.artist)
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "灵音")
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, subtitle)
             .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, subtitle)
@@ -479,12 +495,20 @@ class MusicService : MediaBrowserServiceCompat() {
         if (currentTrackId.isEmpty()) {
             currentTrackId = "${title}_${artist}".hashCode().toString()
         }
-        if (durationMs > 0) cachedDuration = durationMs
+        cachedDuration = durationMs.coerceAtLeast(0)
+        cachedPosition = 0
         isCurrentFav = json.optBoolean("isFavorite", false)
 
         currentSongTitle = title
         currentArtistName = artist
         lastLyricLine = ""
+        usesNativeLyricTimeline = json.has("lyricTrackKey")
+        val lyricTrackKey = json.optString("lyricTrackKey", currentTrackId)
+        playbackLyrics.startTrack(lyricTrackKey)
+        if (json.has("bluetoothLyrics")) setBluetoothLyricsEnabled(json.optBoolean("bluetoothLyrics", false))
+        playbackLyrics.replaceTimeline(lyricTrackKey, parseLyricTimeline(json.optJSONArray("lyricsTimeline")))
+        playbackLyrics.advance(0)
+        lastLyricLine = playbackLyrics.currentLine
         currentCoverBitmap = null
         artworkGeneration++
 
@@ -530,55 +554,82 @@ class MusicService : MediaBrowserServiceCompat() {
     private var currentCoverBitmap: Bitmap? = null
     private var lastLyricNotifTime: Long = 0L
 
-    fun updateCurrentLyric(lyric: String) {
-        val cleanLyric = lyric.trim()
-        if (cleanLyric.isEmpty() || cleanLyric == lastLyricLine) return
-        lastLyricLine = cleanLyric
-
-        try {
-            // 1. Update MediaSessionCompat metadata (Car HUD / Bluetooth Display / Vivo Atomic Island)
-            val meta = buildMetadata(currentSongTitle, currentArtistName, currentCoverBitmap, isCurrentFav, currentDuration.toLong(), cleanLyric)
-            mediaSession?.setMetadata(meta)
-
-            // Update notification subtitle throttled to avoid excessive SystemUI IPC overhead & heating
-            val now = SystemClock.elapsedRealtime()
-            if (isPlaying && (now - lastLyricNotifTime > 4000L)) {
-                lastLyricNotifTime = now
-                postNotification(currentSongTitle, currentArtistName, currentCoverBitmap, true)
-            }
-
-            // 2. Broadcast standard AVRCP Bluetooth Car Media Intents
-            sendBluetoothCarLyricBroadcast(currentSongTitle, currentArtistName, cleanLyric)
-        } catch (e: Exception) {
-            android.util.Log.w("JellyAudio", "Failed to update Bluetooth lyric: ${e.message}")
+    fun setBluetoothLyricsEnabled(enabled: Boolean) {
+        if (!playbackLyrics.setEnabled(enabled)) return
+        getSharedPreferences("playback", Context.MODE_PRIVATE).edit().putBoolean("bluetoothLyrics", enabled).apply()
+        currentTrackJson = currentTrackJson?.let {
+            try { JSONObject(it).put("bluetoothLyrics", enabled).toString() } catch (_: Exception) { it }
+        }
+        if (currentTrackJson != null) {
+            refreshMetadata()
+            updateMediaSessionState(if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED, currentPosition.toLong())
         }
     }
 
-    private fun sendBluetoothCarLyricBroadcast(title: String, artist: String, lyric: String) {
-        val actionList = listOf(
-            "com.android.music.metachanged",
-            "com.kugou.android.music.metachanged",
-            "com.tencent.qqmusic.metachanged",
-            "com.netease.cloudmusic.metachanged"
-        )
-        for (act in actionList) {
-            try {
-                val it = Intent(act).apply {
-                    putExtra("track", title)
-                    putExtra("artist", "$artist - $lyric")
-                    putExtra("lyric", lyric)
-                    putExtra("playing", isPlaying)
-                    putExtra("position", currentPosition.toLong())
-                    putExtra("duration", currentDuration.toLong())
-                }
-                sendBroadcast(it)
-            } catch (ignored: Exception) {}
+    private fun parseLyricTimeline(rows: JSONArray?): List<TimedLyric> {
+        if (rows == null) return emptyList()
+        val lines = ArrayList<TimedLyric>(minOf(rows.length(), 10_000))
+        for (index in 0 until minOf(rows.length(), 10_000)) {
+            val row = rows.optJSONObject(index) ?: continue
+            val seconds = row.optDouble("time", Double.NaN)
+            if (!seconds.isFinite() || seconds < 0) continue
+            val endSeconds = row.optDouble("endTime", Double.NaN)
+            val endMs = if (endSeconds.isFinite() && endSeconds > seconds) (endSeconds * 1000).toLong() else null
+            lines.add(TimedLyric((seconds * 1000).toLong(), row.optString("text", ""), endMs))
+        }
+        return lines
+    }
+
+    fun setLyricTimeline(trackKey: String, linesJson: String) {
+        val rows = try { JSONArray(linesJson) } catch (_: Exception) { return }
+        if (!playbackLyrics.replaceTimeline(trackKey, parseLyricTimeline(rows))) return
+        usesNativeLyricTimeline = true
+        currentTrackJson = currentTrackJson?.let {
+            try { JSONObject(it).put("lyricsTimeline", rows).toString() } catch (_: Exception) { it }
+        }
+        syncNativeLyric(currentPosition.toLong())
+    }
+
+    private fun refreshMetadata() {
+        if (currentTrackJson == null) return
+        mediaSession?.setMetadata(buildMetadata(currentSongTitle, currentArtistName, currentCoverBitmap, isCurrentFav, currentDuration.toLong(), lastLyricLine.ifEmpty { null }))
+    }
+
+    private fun syncNativeLyric(positionMs: Long) {
+        if (!usesNativeLyricTimeline || !playbackLyrics.advance(positionMs)) return
+        publishLyric(playbackLyrics.currentLine)
+    }
+
+    fun updateCurrentLyric(lyric: String) {
+        // Compatibility for older web assets; current assets hand over a complete
+        // timeline and must not race the native player clock with WebView callbacks.
+        if (usesNativeLyricTimeline) return
+        publishLyric(lyric)
+    }
+
+    private fun publishLyric(lyric: String) {
+        val cleanLyric = lyric.trim()
+        if (cleanLyric == lastLyricLine) return
+        lastLyricLine = cleanLyric
+
+        try {
+            refreshMetadata()
+
+            // Update notification subtitle throttled to avoid excessive SystemUI IPC overhead & heating
+            val now = SystemClock.elapsedRealtime()
+            if (currentTrackJson != null && (cleanLyric.isEmpty() || now - lastLyricNotifTime > 4000L)) {
+                lastLyricNotifTime = now
+                postNotification(currentSongTitle, currentArtistName, currentCoverBitmap, isPlaying)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("JellyAudio", "Failed to update Bluetooth lyric: ${e.message}")
         }
     }
 
     fun pause() {
         player?.pause()
         this.isPlaying = false
+        refreshMetadata()
         releaseLocks()
         val pos = currentPosition.toLong()
         cachedPosition = pos.toInt()
@@ -590,6 +641,8 @@ class MusicService : MediaBrowserServiceCompat() {
     fun resume() {
         player?.play()
         this.isPlaying = true
+        syncNativeLyric(currentPosition.toLong())
+        refreshMetadata()
         acquireLocks()
         val pos = currentPosition.toLong()
         cachedPosition = pos.toInt()
@@ -600,9 +653,11 @@ class MusicService : MediaBrowserServiceCompat() {
 
     fun seekTo(positionMs: Int) {
         player?.seekTo(positionMs.toLong())
+        cachedPosition = player?.currentPosition?.coerceAtLeast(0L)?.toInt() ?: positionMs.coerceAtLeast(0)
+        syncNativeLyric(cachedPosition.toLong())
         updateMediaSessionState(
             if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
-            positionMs.toLong()
+            cachedPosition.toLong()
         )
     }
 
@@ -611,6 +666,10 @@ class MusicService : MediaBrowserServiceCompat() {
         player?.stop()
         player?.clearMediaItems()
         isPlaying = false
+        playbackLyrics.startTrack("")
+        lastLyricLine = ""
+        usesNativeLyricTimeline = false
+        refreshMetadata()
         releaseLocks()
         if (isForegroundServiceStarted) {
             stopForeground(STOP_FOREGROUND_REMOVE)

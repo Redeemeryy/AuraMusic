@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="song-glass.css">
   <link rel="stylesheet" href="search-quality.css">
   <link rel="stylesheet" href="playlist-edit.css">
+  <link rel="stylesheet" href="source-manager.css">
   <script src="preferences.js"></script>
 </head>
 <body class="bg-[#fbf9fc] text-[#1b1b1e] min-h-screen flex flex-col relative overflow-hidden select-none">
@@ -222,14 +223,14 @@
       <div class="page-heading"><p>按你的习惯聆听</p><h1>设置</h1></div>
       <div class="max-w-md mx-auto flex flex-col gap-4">
         <!-- Sound Source Plugin Card -->
-        <div class="jelly-glass rounded-3xl p-5 shadow-sm">
+        <div id="settingsSourceCard" class="source-glass rounded-3xl p-5">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
               <div id="settingsPluginIconBg" class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
                 <span class="material-symbols-outlined text-[22px]" id="settingsPluginIcon">extension</span>
               </div>
               <div>
-                <h3 class="text-[15px] font-bold text-on-surface">音源插件状态</h3>
+                <h3 class="text-[15px] font-bold text-on-surface">音源管理</h3>
                 <span id="settingsPluginStatusText" class="text-[12px] text-amber-600 font-semibold flex items-center gap-1">
                   <span id="settingsPluginDot" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                   未导入音源 • 待配置
@@ -269,6 +270,7 @@
         </div>
         <div class="settings-group">
           <h4>系统播放</h4>
+          <label class="setting-row" for="settingBluetoothLyrics"><span>蓝牙歌词<small id="bluetoothLyricsHint">在车机的歌曲信息位置显示当前歌词；需要设备支持刷新媒体信息，锁屏也可同步。</small></span><input class="aura-switch" type="checkbox" id="settingBluetoothLyrics" role="switch" aria-describedby="bluetoothLyricsHint"></label>
           <button class="setting-row" id="btnNotificationSettings"><span>通知与锁屏控制<small id="notificationStatus">查看系统通知设置</small></span><span aria-hidden="true">›</span></button>
           <details class="diagnostic-details"><summary>原子岛帮助与诊断</summary><p>原子岛由 OriginOS 决定是否显示。请允许应用通知，并在系统设置中检查原子岛；媒体服务正常不代表原子岛已接纳。</p><pre id="mediaDiagnostics">打开此页面时读取播放状态</pre><button id="btnRefreshDiagnostics" class="setting-action">刷新状态</button></details>
         </div>
@@ -703,135 +705,60 @@
   </div>
 
   <!-- Modal 5: 音源插件管理 (Sound Source Plugin Manager Modal) -->
-  <div id="pluginModalOverlay" class="fixed inset-0 z-[80] bg-[#fbf9fc] flex flex-col pt-safe pb-safe transition-transform duration-500 translate-y-full">
-    <!-- Header -->
-    <div class="h-14 flex items-center justify-between px-4 w-full max-w-md mx-auto flex-shrink-0 border-b border-white/60">
-      <button id="btnClosePluginModal" class="jelly-glass w-10 h-10 rounded-full flex items-center justify-center text-on-surface active-squish shadow-sm">
-        <span class="material-symbols-outlined text-[22px]">arrow_back</span>
-      </button>
-      <span class="text-[16px] font-bold text-on-surface">音源插件管理</span>
-      <div class="w-10 h-10"></div>
+  <div id="pluginModalOverlay" class="fixed inset-0 z-[80] flex flex-col translate-y-full" role="dialog" aria-modal="true" aria-labelledby="sourceManagerTitle" aria-hidden="true" inert>
+    <div class="source-manager-header">
+      <button id="btnClosePluginModal" class="source-icon-button" aria-label="关闭音源管理"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span></button>
+      <span>音源管理</span>
+      <span class="source-header-mark material-symbols-outlined" aria-hidden="true">graphic_eq</span>
     </div>
-
-    <!-- Body -->
-    <div class="flex-1 overflow-y-auto px-4 py-4 max-w-md mx-auto w-full flex flex-col gap-4">
-      <!-- Active Plugin Card -->
-      <div class="jelly-glass rounded-3xl p-5 shadow-sm flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div id="pluginActiveIconBg" class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shadow-sm">
-              <span class="material-symbols-outlined text-[26px]" id="pluginActiveIcon">extension</span>
-            </div>
-            <div>
-              <div class="flex items-center gap-1.5">
-                <h3 class="text-[16px] font-bold text-on-surface" id="pluginActiveName">未导入音源</h3>
-                <span id="pluginActiveStatusTag" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">待配置</span>
-              </div>
-              <span class="text-[12px] text-on-surface-variant font-medium" id="pluginActiveVersion">暂未配置音源脚本</span>
-            </div>
+    <div class="source-manager-scroll">
+      <div class="source-manager-layout">
+        <div class="source-page-heading"><h2 id="sourceManagerTitle">音乐，从这里连接</h2><p>管理正在使用的音源，或添加新的声音。</p></div>
+        <section class="source-glass source-active-card" aria-labelledby="pluginActiveName">
+          <div class="source-section-label">当前音源<span id="pluginActiveStatusTag" class="source-status">待配置</span></div>
+          <div class="source-active-heading">
+            <div id="pluginActiveIconBg" class="source-icon-tile"><span class="material-symbols-outlined" id="pluginActiveIcon" aria-hidden="true">graphic_eq</span></div>
+            <div class="source-active-copy"><h3 id="pluginActiveName">尚未添加音源</h3><span id="pluginActiveVersion">从下方选择一种方式导入</span></div>
           </div>
-        </div>
-
-        <p class="text-[12px] text-on-surface-variant leading-relaxed" id="pluginActiveDesc">
-          当前未加载任何音乐源插件。请从下方导入音源脚本以开启全网无损播放与搜索。
-        </p>
-
-        <!-- Supported platforms tags -->
-        <div id="pluginActivePlatforms" class="flex flex-wrap gap-1.5 pt-2 border-t border-white/60 hidden">
-          <span class="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">QQ音乐 (TX)</span>
-          <span class="px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 text-[11px] font-bold">网易云 (WY)</span>
-          <span class="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 text-[11px] font-bold">酷狗 (KG)</span>
-          <span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[11px] font-bold">酷我 (KW)</span>
-          <span class="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-600 text-[11px] font-bold">咪咕 (MG)</span>
-        </div>
-
-        <!-- Action Buttons -->
-        <div id="pluginActiveActions" class="grid grid-cols-2 gap-2.5 pt-2 hidden">
-          <button id="btnCheckPluginUpdate" class="py-2.5 px-3 rounded-2xl bg-primary text-white font-bold text-[12px] flex items-center justify-center gap-1.5 shadow-sm active-squish">
-            <span class="material-symbols-outlined text-[17px]">sync</span>
-            <span>检查音源更新</span>
-          </button>
-          <button id="btnReloadPlugin" class="py-2.5 px-3 rounded-2xl jelly-glass text-on-surface font-semibold text-[12px] flex items-center justify-center gap-1.5 active-squish">
-            <span class="material-symbols-outlined text-[17px]">restart_alt</span>
-            <span>重载当前音源</span>
-          </button>
-        </div>
-
-        <!-- Uninstall / Clear Action -->
-        <div id="pluginDangerActions" class="pt-1 border-t border-white/60 hidden">
-          <button id="btnUninstallPlugin" class="w-full py-2 px-3 rounded-2xl text-rose-500 hover:bg-rose-50 font-semibold text-[12px] flex items-center justify-center gap-1.5 active-squish">
-            <span class="material-symbols-outlined text-[16px]">delete_outline</span>
-            <span>卸载并清空当前音源</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Update Status Card (hidden by default) -->
-      <div id="pluginUpdateCard" class="hidden jelly-glass rounded-3xl p-4 border border-primary/20 shadow-sm flex flex-col gap-2.5">
-        <div class="flex items-center gap-2 text-primary font-bold text-[13px]">
-          <span class="material-symbols-outlined text-[18px]">verified</span>
-          <span id="pluginUpdateStatusText">已是最新版本</span>
-        </div>
-        <p class="text-[12px] text-on-surface-variant leading-relaxed" id="pluginUpdateNotes">当前音源插件运行状态稳定，核心解析规则均为最新。</p>
-        <button id="btnOpenUpdateUrl" class="hidden py-2 px-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-[12px] flex items-center justify-center gap-1.5 shadow-sm active-squish self-start">
-          <span class="material-symbols-outlined text-[16px]">open_in_browser</span>
-          <span id="btnOpenUpdateUrlText">跳转更新链接</span>
-        </button>
-      </div>
-
-      <!-- Import Custom Plugin Section -->
-      <div class="jelly-glass rounded-3xl p-5 shadow-sm flex flex-col gap-4">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-primary text-[20px]">add_circle</span>
-          <h4 class="text-[14px] font-bold text-on-surface">导入音源插件</h4>
-        </div>
-        <p class="text-[12px] text-on-surface-variant leading-relaxed">
-          支持导入兼容 CeruMusic 或 LX Music 规范的外部音源插件脚本。默认纯净安装，可随时从文件、链接或剪贴板导入。
-        </p>
-
-        <!-- Mode 1: 本地文件导入 -->
-        <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-white/50 border border-white/60">
-          <label class="text-[12px] font-bold text-on-surface flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-emerald-600 text-[18px]">folder_open</span>
-            <span>从手机本地文件导入 (.js)</span>
-          </label>
-          <p class="text-[11px] text-on-surface-variant leading-relaxed">选择保存在手机内部存储或微信/QQ下载的 JavaScript 音源脚本文件。</p>
-          <input type="file" id="inputPluginFile" accept=".js,application/javascript,text/javascript,text/plain" style="display:none;" />
-          <button id="btnImportFromFile" class="h-10 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-[12px] flex items-center justify-center gap-1.5 active-squish shadow-sm">
-            <span class="material-symbols-outlined text-[18px]">file_open</span>
-            <span>选择本地音源文件 (.js)</span>
-          </button>
-        </div>
-
-        <!-- Mode 2: 从网络链接导入 -->
-        <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-white/50 border border-white/60">
-          <label class="text-[12px] font-bold text-on-surface flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-primary text-[18px]">link</span>
-            <span>从网络链接订阅导入</span>
-          </label>
-          <div class="flex items-center gap-2">
-            <input id="inputPluginUrl" type="url" placeholder="https://example.com/source.js" class="flex-1 jelly-glass rounded-xl px-3 py-2 text-[12px] text-on-surface outline-none border border-white/60 focus:border-primary" />
-            <button id="btnImportFromUrl" class="h-9 px-3.5 rounded-xl bg-primary text-white font-bold text-[12px] flex items-center justify-center active-squish flex-shrink-0">
-              下载导入
-            </button>
+          <p id="pluginActiveDesc">导入兼容的音源脚本后，即可搜索和播放音乐。</p>
+          <div id="pluginActivePlatforms" class="source-platforms hidden" aria-label="音源平台"></div>
+          <div id="pluginActiveActions" class="source-action-pair hidden">
+            <button id="btnCheckPluginUpdate" class="source-button source-button-accent"><span class="material-symbols-outlined" aria-hidden="true">sync</span><span>检查更新</span></button>
+            <button id="btnReloadPlugin" class="source-button"><span class="material-symbols-outlined" aria-hidden="true">restart_alt</span><span>重新加载</span></button>
           </div>
-        </div>
-
-        <!-- Mode 3: 粘贴插件源码直接导入 -->
-        <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-white/50 border border-white/60">
-          <label class="text-[12px] font-bold text-on-surface flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-secondary text-[18px]">code</span>
-            <span>手动粘贴插件源码直接导入</span>
-          </label>
-          <textarea id="inputPluginCode" rows="3" placeholder="在此粘贴 JavaScript 插件代码..." class="w-full jelly-glass rounded-xl p-2.5 text-[11px] text-on-surface outline-none border border-white/60 focus:border-primary font-mono resize-none"></textarea>
-          <button id="btnImportFromCode" class="h-9 px-4 rounded-xl bg-secondary text-white font-bold text-[12px] flex items-center justify-center gap-1 active-squish self-end">
-            <span class="material-symbols-outlined text-[16px]">play_arrow</span>
-            <span>加载并应用插件</span>
-          </button>
-        </div>
+          <div id="pluginDangerActions" class="source-danger-actions hidden"><button id="btnUninstallPlugin" class="source-button source-button-danger"><span class="material-symbols-outlined" aria-hidden="true">delete_outline</span><span>移除当前音源</span></button></div>
+        </section>
+        <section id="pluginUpdateCard" class="source-glass source-update-card hidden" aria-live="polite">
+          <div class="source-update-heading"><span class="material-symbols-outlined" aria-hidden="true">update</span><h3 id="pluginUpdateStatusText">音源更新</h3></div>
+          <p id="pluginUpdateNotes"></p>
+          <button id="btnOpenUpdateUrl" class="source-button source-button-accent hidden"><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span><span id="btnOpenUpdateUrlText">前往更新页面</span></button>
+        </section>
+        <section class="source-import-section" aria-labelledby="sourceImportTitle">
+          <div class="source-import-heading"><h3 id="sourceImportTitle">添加音源</h3><p>支持兼容 CeruMusic、LX Music 的脚本</p></div>
+          <div class="source-glass source-import-card">
+            <div class="source-import-label"><span class="material-symbols-outlined" aria-hidden="true">folder_open</span><div><h4>本地文件</h4><p>选择手机中已保存的 .js 音源文件</p></div></div>
+            <input type="file" id="inputPluginFile" accept=".js,application/javascript,text/javascript,text/plain" hidden />
+            <button id="btnImportFromFile" class="source-button source-button-accent"><span class="material-symbols-outlined" aria-hidden="true">add</span><span>选择音源文件</span></button>
+          </div>
+          <div class="source-glass source-import-card">
+            <div class="source-import-label"><span class="material-symbols-outlined" aria-hidden="true">link</span><div><label for="inputPluginUrl">网络链接</label><p>粘贴音源脚本的下载地址</p></div></div>
+            <div class="source-url-row"><input id="inputPluginUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/source.js" /><button id="btnImportFromUrl" class="source-button source-button-accent">导入</button></div>
+          </div>
+          <div class="source-glass source-import-card">
+            <div class="source-import-label"><span class="material-symbols-outlined" aria-hidden="true">code</span><div><label for="inputPluginCode">粘贴源码</label><p>已有完整脚本时，可直接粘贴并加载</p></div></div>
+            <textarea id="inputPluginCode" rows="4" spellcheck="false" placeholder="在这里粘贴 JavaScript 音源代码"></textarea>
+            <button id="btnImportFromCode" class="source-button source-button-accent"><span class="material-symbols-outlined" aria-hidden="true">check</span><span>加载音源</span></button>
+          </div>
+        </section>
       </div>
     </div>
   </div>
+  <dialog id="pluginRemoveDialog" class="source-dialog" aria-labelledby="pluginRemoveTitle" aria-describedby="pluginRemoveDescription">
+    <span class="source-dialog-symbol material-symbols-outlined" aria-hidden="true">extension_off</span>
+    <h2 id="pluginRemoveTitle">移除当前音源？</h2>
+    <p id="pluginRemoveDescription">移除后需要重新导入音源才能搜索和播放。你的收藏、歌单和播放历史会保留。</p>
+    <div class="source-action-pair"><button id="btnCancelPluginRemove" class="source-button" autofocus>保留音源</button><button id="btnConfirmPluginRemove" class="source-button source-button-danger">移除音源</button></div>
+  </dialog>
 
   <!-- Modal 6: 导入歌单 (CeruMusic / LX Music Compatible Playlist Import Modal) -->
   <div id="importPlaylistOverlay" class="fixed inset-0 z-[75] bg-[#fbf9fc] flex flex-col pt-safe pb-safe transition-transform duration-500 translate-y-full">
@@ -942,11 +869,11 @@
   </div>
 
   <!-- Modal 7: 插件/音源更新通知弹窗 (Plugin Notice & Update Modal Dialog) -->
-  <div id="pluginNoticeOverlay" class="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="jelly-glass rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4 transform transition-transform duration-300 scale-95 border border-white/80" id="pluginNoticeCard">
+  <div id="pluginNoticeOverlay" class="fixed inset-0 z-[80] flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none" role="dialog" aria-modal="true" aria-labelledby="pluginNoticeTitle" aria-hidden="true" inert>
+    <div class="source-glass source-dialog-card scale-95" id="pluginNoticeCard">
       <!-- Header -->
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md flex-shrink-0">
+      <div class="source-notice-header">
+        <div class="source-icon-tile">
           <span class="material-symbols-outlined text-[26px]" id="pluginNoticeIcon">upgrade</span>
         </div>
         <div class="min-w-0 flex-1">
@@ -956,7 +883,7 @@
       </div>
 
       <!-- Version Pill & Type -->
-      <div class="flex items-center justify-between p-3 rounded-2xl bg-white/60 border border-white/70">
+      <div class="source-notice-version">
         <div class="flex flex-col">
           <span class="text-[10px] text-outline font-semibold">当前版本</span>
           <span class="text-[13px] font-bold text-on-surface" id="pluginNoticeCurrentVer">8.9.1</span>
@@ -971,7 +898,7 @@
       </div>
 
       <!-- Release Notes Box -->
-      <div class="flex flex-col gap-1.5 p-3 rounded-2xl bg-amber-500/5 border border-amber-500/15 max-h-36 overflow-y-auto">
+      <div class="source-notice-notes">
         <span class="text-[11px] font-bold text-amber-700 flex items-center gap-1">
           <span class="material-symbols-outlined text-[14px]">tips_and_updates</span>
           <span>更新说明</span>
@@ -982,22 +909,22 @@
       </div>
 
       <!-- Progress / Download Status -->
-      <div id="pluginNoticeProgressCard" class="hidden flex items-center gap-2.5 p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+      <div id="pluginNoticeProgressCard" class="source-notice-progress hidden" role="status">
         <div class="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" id="pluginNoticeSpinner"></div>
         <span class="text-[12px] font-semibold text-primary" id="pluginNoticeProgressText">正在下载新版本音源...</span>
       </div>
 
       <!-- Actions Buttons -->
-      <div class="grid grid-cols-2 gap-2.5 pt-1" id="pluginNoticeActionBtns">
-        <button id="btnCancelPluginUpdate" class="py-2.5 px-4 rounded-xl jelly-glass text-on-surface font-semibold text-[13px] active-squish shadow-sm">
+      <div class="source-action-pair" id="pluginNoticeActionBtns">
+        <button id="btnCancelPluginUpdate" class="source-button">
           稍后提醒
         </button>
-        <button id="btnConfirmPluginUpdate" class="py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md active-squish">
+        <button id="btnConfirmPluginUpdate" class="source-button source-button-accent">
           <span class="material-symbols-outlined text-[18px]">cloud_download</span>
           <span>立即更新</span>
         </button>
       </div>
-      <button id="btnOpenPluginUpdateBrowser" class="hidden w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md active-squish">
+      <button id="btnOpenPluginUpdateBrowser" class="source-button source-button-accent hidden">
         <span class="material-symbols-outlined text-[18px]">open_in_browser</span>
         <span>打开浏览器手动下载</span>
       </button>

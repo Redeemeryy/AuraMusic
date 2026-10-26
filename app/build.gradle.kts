@@ -23,8 +23,8 @@ android {
         applicationId = "com.salt.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "1.2.0"
+        versionCode = 13
+        versionName = "1.2.1"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -73,6 +73,7 @@ gradle.taskGraph.whenReady {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     implementation("androidx.core:core-ktx:1.12.0")

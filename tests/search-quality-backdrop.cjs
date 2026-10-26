@@ -9,7 +9,7 @@ const solid=color=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://
     for (const [width,height] of [[320,640],[347,754],[800,360]]) {
       const page=await browser.newPage({viewport:{width,height}}),errors=[];
       page.on('pageerror',e=>errors.push(e.message));
-      await page.route('https://**',r=>r.abort());
+      await page.route('**/*', r => r.request().url().startsWith('https:') ? r.abort() : r.continue());
       await page.goto(pathToFileURL(path.resolve('app/src/main/assets/web/index.html')).href);
       await page.evaluate(()=>switchView('search'));
       await page.waitForTimeout(350);
@@ -56,7 +56,7 @@ const solid=color=>'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://
       await page.close(); console.log(`PASS search sources, stale results, quality layout/select/back ${width}x${height}`);
     }
     const page=await browser.newPage({viewport:{width:347,height:754}});
-    await page.route('https://**',r=>r.abort());
+    await page.route('**/*', r => r.request().url().startsWith('https:') ? r.abort() : r.continue());
     await page.goto(pathToFileURL(path.resolve('app/src/main/assets/web/index.html')).href);
     await page.evaluate(()=>openFullPlayer());
     const black=solid('#15151a'),pink=solid('#f4a5c7'),blue=solid('#74a9df');

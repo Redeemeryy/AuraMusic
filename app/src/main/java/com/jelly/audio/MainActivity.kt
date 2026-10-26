@@ -92,6 +92,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             mainHandler.post {
+                evaluateJavascript("window.syncBluetoothLyricsPreference && window.syncBluetoothLyricsPreference();")
                 evaluateJavascript("window.syncPlaybackFromNative && window.syncPlaybackFromNative();")
                 if (pendingOpenFullPlayer) {
                     pendingOpenFullPlayer = false
@@ -207,6 +208,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
+                    evaluateJavascript("window.syncBluetoothLyricsPreference && window.syncBluetoothLyricsPreference();")
                     evaluateJavascript("window.syncPlaybackFromNative && window.syncPlaybackFromNative();")
                     if (pendingOpenFullPlayer) {
                         pendingOpenFullPlayer = false

@@ -11,7 +11,8 @@
     "test:glass": "node tests/song-glass.cjs",
     "test:search-player": "node tests/search-quality-backdrop.cjs",
     "test:playlist-live": "node tests/playlist-live.cjs",
-    "test:playlist-edit": "node --test tests/playlist-edit.cjs"
+    "test:playlist-edit": "node --test tests/playlist-edit.cjs",
+    "test:source-manager": "node --test tests/source-manager.cjs"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17",

@@ -42,6 +42,7 @@
   - 支持双模式自由切换：唱片旋律视图 / 沉浸式逐行歌词视图。
   - 拖拽歌词进度预览并支持点按秒级定向快进播放。
   - 聚合精选热评生态，听歌看评两不误。
+  - 可在设置中开启蓝牙歌词，以当前歌词更新车机的曲名信息；原生服务在后台与息屏时持续同步，具体兼容范围见[蓝牙歌词说明](docs/bluetooth-lyrics.md)。
 
 - 🚗 **车载中控大屏与横屏全场景深度适配 (Car & Landscape Mode)**
   - 侧边专属车载导航胶囊，充分释放中控宽屏浏览视野；
@@ -70,7 +71,7 @@
 
 ### 本地界面开发（Liquid Glass 改版）
 
-当前正式版为 [v1.2.0](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.0)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。安装和数据迁移注意事项见[发布说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
+当前正式版为 [v1.2.1](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.1)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。本次改动见[发布说明](docs/releases/v1.2.1.md)，安装和数据迁移注意事项见 [v1.2.0 说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
 
 界面样式和图标已随 APK 打包，运行时不再依赖 Tailwind CDN 或 Google Fonts。
 修改 `assets/web` 中 HTML/JS 类名后，先运行 `npm ci`、`npm run build:web`，再构建 APK。

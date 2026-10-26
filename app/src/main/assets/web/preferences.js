@@ -1,12 +1,13 @@
 (function (root) {
   function createPreferences(storage) {
-    const defaults = { playMode: 'sequence', reduceMotion: false, reduceTransparency: false };
+    const defaults = { playMode: 'sequence', reduceMotion: false, reduceTransparency: false, bluetoothLyrics: false };
     function normalize(value) {
       value = value && typeof value === 'object' ? value : {};
       return {
         playMode: ['sequence', 'loop', 'shuffle'].includes(value.playMode) ? value.playMode : 'sequence',
         reduceMotion: value.reduceMotion === true,
-        reduceTransparency: value.reduceTransparency === true
+        reduceTransparency: value.reduceTransparency === true,
+        bluetoothLyrics: value.bluetoothLyrics === true
       };
     }
     let current = { ...defaults };
