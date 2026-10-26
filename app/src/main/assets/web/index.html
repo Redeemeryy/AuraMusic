@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'none'; object-src 'none'; base-uri 'self'">
   <title>AuraMusic - 灵音</title>
   <link rel="icon" type="image/png" href="favicon.png">
   
@@ -16,6 +17,8 @@
   <link rel="stylesheet" href="search-quality.css">
   <link rel="stylesheet" href="playlist-edit.css">
   <link rel="stylesheet" href="source-manager.css">
+  <link rel="stylesheet" href="update-ui.css">
+  <script src="update-bootstrap.js"></script>
   <script src="preferences.js"></script>
 </head>
 <body class="bg-[#fbf9fc] text-[#1b1b1e] min-h-screen flex flex-col relative overflow-hidden select-none">
@@ -932,15 +935,15 @@
   </div>
 
   <!-- Modal 8: 软件版本更新提示弹窗 (AuraMusic App Release Update Modal) -->
-  <div id="appUpdateOverlay" class="fixed inset-0 z-[85] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="jelly-glass rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4 transform transition-transform duration-300 scale-95 border border-white/80" id="appUpdateCard">
+  <div id="appUpdateOverlay" role="dialog" aria-modal="true" aria-labelledby="appUpdateTitle" aria-hidden="true" class="fixed inset-0 z-[85] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="jelly-glass rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col gap-4 transform transition-transform duration-300 scale-95" id="appUpdateCard">
       <!-- Header -->
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary to-indigo-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
           <span class="material-symbols-outlined text-[26px]">system_update</span>
         </div>
         <div class="min-w-0 flex-1">
-          <h3 class="text-[17px] font-bold text-on-surface truncate">发现软件新版本</h3>
+          <h3 id="appUpdateTitle" class="text-[17px] font-bold text-on-surface">发现软件新版本</h3>
           <span class="text-[12px] text-on-surface-variant font-medium truncate block" id="appUpdateReleaseTitle">AuraMusic v1.1.0</span>
         </div>
       </div>
@@ -972,6 +975,11 @@
       </div>
 
       <!-- Actions Buttons -->
+      <div id="appUpdateTransfer" hidden aria-live="polite">
+        <p id="appUpdateStatus"></p>
+        <div id="appUpdateProgress" role="progressbar" aria-label="更新下载进度" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+        <small id="appUpdateBytes"></small>
+      </div>
       <div class="flex flex-col gap-2 pt-1">
         <div class="grid grid-cols-2 gap-2.5">
           <button id="btnCancelAppUpdate" class="py-2.5 px-4 rounded-xl jelly-glass text-on-surface font-semibold text-[13px] active-squish shadow-sm">
@@ -1002,6 +1010,7 @@
   <script src="vendor.js"></script>
   <script src="ceru_runtime.js"></script>
   <script src="player-backdrop.js"></script>
+  <script src="update-ui.js"></script>
   <script src="app.js"></script>
   <script src="interaction-motion.js"></script>
   <script src="song-glass.js"></script>

@@ -71,7 +71,7 @@
 
 ### 本地界面开发（Liquid Glass 改版）
 
-当前正式版为 [v1.2.1](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.2.1)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。本次改动见[发布说明](docs/releases/v1.2.1.md)，安装和数据迁移注意事项见 [v1.2.0 说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
+当前正式版为 [v1.3.0](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.3.0)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。本次新增界面资源更新和 APK 差分更新，见[发布说明](docs/releases/v1.3.0.md)与[增量更新说明](docs/incremental-updates.md)。安装和数据迁移注意事项见 [v1.2.0 说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
 
 界面样式和图标已随 APK 打包，运行时不再依赖 Tailwind CDN 或 Google Fonts。
 修改 `assets/web` 中 HTML/JS 类名后，先运行 `npm ci`、`npm run build:web`，再构建 APK。
@@ -86,6 +86,7 @@ OriginOS 的音乐岛包含系统侧包名筛选。标准媒体通知和服务�
 ### 环境要求
 - **Android SDK**: Compile SDK 34, Min SDK 26 (Android 8.0+)
 - **JDK**: OpenJDK 17 或 21
+- **Node.js**: 用于生成网页资源校验清单及发布增量包
 - **Gradle**: 8.7+ (已内置 Gradle Wrapper)
 
 ### 命令行编译

@@ -1,5 +1,6 @@
 // AuraMusic (灵音) - App Logic
 (function () {
+  if (window.AuraStorageMigrationPending) return;
   const state = {
     currentTrack: JSON.parse(localStorage.getItem('jelly_current_track') || 'null'),
     queue: JSON.parse(localStorage.getItem('jelly_queue') || '[]'),
@@ -3689,6 +3690,7 @@
   }
 
   function closeAppUpdateDialog() {
+    if (window.AuraUpdateUI) { window.AuraUpdateUI.hide(); return; }
     if (!el.appUpdateOverlay) return;
     if (activeAppRelease?.tag_name) {
       dismissedAppReleaseTags.add(activeAppRelease.tag_name);
@@ -3702,6 +3704,7 @@
   }
 
   async function checkAppReleaseUpdate(isManual = false) {
+    if (window.AuraUpdateUI) { window.AuraUpdateUI.check(isManual); return; }
     const currentVer = getInstalledAppVersion();
     if (el.appVersionText) {
       el.appVersionText.textContent = currentVer.startsWith('v') ? currentVer : `v${currentVer}`;
@@ -3758,11 +3761,12 @@
   }
 
   if (el.btnCancelAppUpdate) {
-    el.btnCancelAppUpdate.addEventListener('click', closeAppUpdateDialog);
+    el.btnCancelAppUpdate.addEventListener('click', () => window.AuraUpdateUI ? window.AuraUpdateUI.dismiss() : closeAppUpdateDialog());
   }
 
   if (el.btnConfirmAppUpdate) {
     el.btnConfirmAppUpdate.addEventListener('click', () => {
+      if (window.AuraUpdateUI) { window.AuraUpdateUI.confirm(); return; }
       if (!activeAppRelease) return;
       const assets = activeAppRelease.assets || [];
       const apkAsset = assets.find(a => (a.name || '').endsWith('.apk')) || assets[0];
@@ -5371,16 +5375,6 @@
     try {
       syncAllQualityBadges();
 
-      // Check if custom plugin code was saved in localStorage
-      const customCode = localStorage.getItem('jelly_custom_plugin_code');
-      if (customCode) {
-        try {
-          await evalPluginCode(customCode, false);
-        } catch (e) {
-          console.warn('Failed to load custom plugin from storage:', e);
-        }
-      }
-
       syncPluginUI();
       updatePlayState(false);
 
@@ -5423,10 +5417,24 @@
         el.appVersionText.textContent = appVer.startsWith('v') ? appVer : `v${appVer}`;
       }
 
+      // The local interface is usable; optional network content must not gate update health.
+      if (window.AuraStorage) window.AuraStorage.markHealthy(window.AuraStorageLaunchToken);
+
       // Check for App Release updates from GitHub
       setTimeout(() => {
         checkAppReleaseUpdate(false);
       }, 2200);
+
+      // Plugin activation and its discovery requests may wait on the network indefinitely.
+      // Restore them only after the local interface has finished booting and confirmed health.
+      const customCode = localStorage.getItem('jelly_custom_plugin_code');
+      if (customCode) {
+        try {
+          await evalPluginCode(customCode, false);
+        } catch (e) {
+          console.warn('Failed to load custom plugin from storage:', e);
+        }
+      }
 
       // Load rank hot tracks, playlists and daily recommendations if plugin is initialized
       if (window.MusicAPI && window.MusicAPI.initialized) {

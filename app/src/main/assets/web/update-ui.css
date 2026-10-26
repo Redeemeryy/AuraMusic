@@ -1,0 +1,21 @@
+#appUpdateOverlay { background: rgba(38, 60, 79, .2); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+#appUpdateCard { max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border-radius: 30px; color: #29465c; background: linear-gradient(135deg, #f6feffb3, #e7f1ff99); backdrop-filter: blur(28px) saturate(1.25); -webkit-backdrop-filter: blur(28px) saturate(1.25); box-shadow: inset 0 1px 1px #fff9, inset 0 -1px 1px #7898b333, 0 18px 64px #24466026; border: 1px solid #e8f6ff66; scrollbar-width: thin; }
+#appUpdateCard > div { flex-shrink: 0; }
+#appUpdateCard > div:first-child > div:first-child { color: #427492; background: #eef9ff66; box-shadow: inset 0 1px 1px #fffa; }
+#appUpdateCard > div:nth-child(2), #appUpdateCard > div:nth-child(3) { background: #f1f9ff40; border: 0; }
+#appUpdateNotes { overflow-wrap: anywhere; }
+#appUpdateCard button { min-height: 44px; border-radius: 999px; transition: transform 180ms var(--ease-glass), background 180ms ease, opacity 180ms ease; border: 1px solid #d7e8f380; background: linear-gradient(150deg, #ffffff96, #e5f1ff70); box-shadow: inset 0 1px 1px #ffffffa6, 0 3px 10px #5378910a; color: #426e8b; }
+#appUpdateCard button:active:not(:disabled) { transform: scale(.96); background: #cfe5fbb3; }
+#appUpdateCard button:disabled { opacity: .52; cursor: default; }
+#appUpdateCard button:focus-visible { outline: 2px solid #438dc7; outline-offset: 3px; }
+#btnConfirmAppUpdate { color: #126cad !important; }
+#appUpdateTransfer { display: grid; gap: 8px; font-size: 13px; line-height: 1.5; }
+#appUpdateTransfer[hidden], #appUpdateProgress[hidden] { display: none; }
+#appUpdateProgress { height: 7px; border-radius: 8px; background: #6592af1f; overflow: hidden; }
+#appUpdateProgress > span { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #78b9d8, #4b86c1); transition: width 200ms linear; }
+#appUpdateBytes { color: #607c91; font-size: 11px; font-variant-numeric: tabular-nums; }
+.reduce-transparency #appUpdateCard { background: #f1f7fb; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.reduce-transparency #appUpdateOverlay { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.reduce-motion #appUpdateCard, .reduce-motion #appUpdateCard *, .reduce-motion #appUpdateOverlay { transition: none !important; }
+@media (prefers-reduced-motion: reduce) { #appUpdateCard, #appUpdateCard *, #appUpdateOverlay { transition: none !important; } }
+@media (max-height: 480px) { #appUpdateCard { max-width: 560px; max-height: calc(100dvh - 32px); padding: 18px; gap: 12px; } #appUpdateCard > div:nth-child(3) { max-height: 96px; } }

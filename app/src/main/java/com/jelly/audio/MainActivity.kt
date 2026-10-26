@@ -17,6 +17,9 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebResourceError
+import android.webkit.MimeTypeMap
 import android.app.Activity
 import android.net.Uri
 import android.webkit.ValueCallback
@@ -32,13 +35,22 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewAssetLoader
 import android.widget.Toast
+import com.jelly.audio.updates.NativeUpdater
+import com.jelly.audio.updates.WebContentStore
+import com.jelly.audio.updates.StorageMigrationBridge
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.util.UUID
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
         var instance: MainActivity? = null
+        private const val STABLE_WEB_URL = "https://appassets.androidplatform.net/assets/web/index.html"
+        private const val LEGACY_WEB_URL = "file:///android_asset/web/index.html"
     }
 
     lateinit var webView: WebView
@@ -47,6 +59,16 @@ class MainActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var progressRunnable: Runnable? = null
     private var uploadMessage: ValueCallback<Array<Uri>>? = null
+    private lateinit var webContentStore: WebContentStore
+    private lateinit var updater: NativeUpdater
+    private lateinit var storageMigration: StorageMigrationBridge
+    @Volatile private var currentLocalDocument: String? = null
+    @Volatile private var webLaunchToken = ""
+    private var recoveredWebLaunch = false
+    private var webLaunchHealthy = false
+    private val webHealthTimeout = Runnable {
+        if (!webLaunchHealthy && currentLocalDocument == STABLE_WEB_URL) recoverWebLaunch()
+    }
 
     private val pluginFilePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -94,7 +116,7 @@ class MainActivity : AppCompatActivity() {
             mainHandler.post {
                 evaluateJavascript("window.syncBluetoothLyricsPreference && window.syncBluetoothLyricsPreference();")
                 evaluateJavascript("window.syncPlaybackFromNative && window.syncPlaybackFromNative();")
-                if (pendingOpenFullPlayer) {
+                if (pendingOpenFullPlayer && !isMigratingLegacyPage()) {
                     pendingOpenFullPlayer = false
                     evaluateJavascript("window.openFullPlayer && window.openFullPlayer();")
                 }
@@ -115,7 +137,7 @@ class MainActivity : AppCompatActivity() {
         val shouldOpen = checkOpenPlayerIntent(intent)
         mainHandler.post {
             evaluateJavascript("window.syncPlaybackFromNative && window.syncPlaybackFromNative();")
-            if (shouldOpen) {
+            if (shouldOpen && !isMigratingLegacyPage()) {
                 evaluateJavascript("window.openFullPlayer && window.openFullPlayer();")
             }
         }
@@ -163,6 +185,44 @@ class MainActivity : AppCompatActivity() {
 
         requestNotificationPermission()
 
+        webContentStore = WebContentStore(this)
+        updater = NativeUpdater(this, webContentStore)
+        storageMigration = StorageMigrationBridge(
+            File(filesDir, "storage-migration"),
+            { currentLocalDocument == LEGACY_WEB_URL },
+            { currentLocalDocument == STABLE_WEB_URL },
+            { webLaunchToken },
+            { mainHandler.post { launchStableWebContent() } },
+            { mainHandler.post {
+                mainHandler.removeCallbacks(webHealthTimeout)
+                Toast.makeText(this, "本地数据迁移未完成，已恢复原界面，备份已保留", Toast.LENGTH_LONG).show()
+                loadTrustedPage(LEGACY_WEB_URL)
+            } },
+            { token -> mainHandler.post {
+                if (token == webLaunchToken && currentLocalDocument == STABLE_WEB_URL) {
+                    runCatching { webContentStore.markHealthy() }.onSuccess {
+                        webLaunchHealthy = true
+                        mainHandler.removeCallbacks(webHealthTimeout)
+                    }.onFailure { recoverWebLaunch() }
+                }
+            } }
+        )
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/web/") { path ->
+                val stream = webContentStore.open(path)
+                val mime = when (path.substringAfterLast('.', "").lowercase()) {
+                    "js" -> "application/javascript"
+                    "css" -> "text/css"
+                    "html" -> "text/html"
+                    else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(path.substringAfterLast('.')) ?: "application/octet-stream"
+                }
+                WebResourceResponse(mime, "UTF-8", if (stream == null) 404 else 200,
+                    if (stream == null) "Not Found" else "OK",
+                    mapOf("Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff",
+                        "Content-Security-Policy" to "script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'none'; object-src 'none'; base-uri 'self'"),
+                    stream ?: ByteArrayInputStream(ByteArray(0)))
+            }.build()
+
         webView = WebView(this).apply {
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
             settings.apply {
@@ -171,9 +231,11 @@ class MainActivity : AppCompatActivity() {
                 mediaPlaybackRequiresUserGesture = false
                 allowFileAccess = true
                 allowContentAccess = true
+                allowFileAccessFromFileURLs = false
+                allowUniversalAccessFromFileURLs = false
                 databaseEnabled = true
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                cacheMode = WebSettings.LOAD_DEFAULT
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                cacheMode = WebSettings.LOAD_NO_CACHE
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -204,10 +266,43 @@ class MainActivity : AppCompatActivity() {
             }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    return false
+                    val uri = request?.url ?: return true
+                    val destination = uri.toString().substringBefore('#')
+                    if (request.isForMainFrame && destination == currentLocalDocument && isTrustedPage(destination)) return false
+                    if (request.isForMainFrame && uri.scheme in listOf("https", "http")) {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                    }
+                    return true
+                }
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                    val uri = request?.url ?: return null
+                    if (uri.host == "appassets.androidplatform.net") {
+                        return assetLoader.shouldInterceptRequest(uri)
+                            ?: WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+                    }
+                    return null
+                }
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    if (!isTrustedPage(url)) {
+                        currentLocalDocument = null
+                        view?.stopLoading()
+                        view?.removeJavascriptInterface("AndroidBridge")
+                        view?.removeJavascriptInterface("AuraUpdater")
+                        view?.removeJavascriptInterface("AuraStorage")
+                        return
+                    }
+                    currentLocalDocument = url?.substringBefore('#')
+                    super.onPageStarted(view, url, favicon)
+                }
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    super.onReceivedError(view, request, error)
+                    if (request?.isForMainFrame == true && currentLocalDocument == STABLE_WEB_URL) recoverWebLaunch()
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
+                    if (!isTrustedPage(url) || isMigratingLegacyPage()) return
+                    // The file origin is migration-only and must never remain on the Back stack.
+                    if (currentLocalDocument == STABLE_WEB_URL) webView.clearHistory()
                     evaluateJavascript("window.syncBluetoothLyricsPreference && window.syncBluetoothLyricsPreference();")
                     evaluateJavascript("window.syncPlaybackFromNative && window.syncPlaybackFromNative();")
                     if (pendingOpenFullPlayer) {
@@ -220,6 +315,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             addJavascriptInterface(WebAppInterface(this@MainActivity), "AndroidBridge")
+            addJavascriptInterface(updater, "AuraUpdater")
+            addJavascriptInterface(storageMigration, "AuraStorage")
         }
 
         // Listen for system insets (status bar, navigation bar, cutout)
@@ -266,21 +363,73 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 webView.evaluateJavascript("window.handleBackPress ? window.handleBackPress() : false;") { result ->
                     if (result != "true") {
-                        if (webView.canGoBack()) {
-                            webView.goBack()
-                        } else {
-                            finish()
-                        }
+                        // App navigation is handled above. Returning through WebView history could
+                        // revisit the pre-migration file origin and fork the user's local storage.
+                        finish()
                     }
                 }
             }
         })
 
-        // Load frontend or restore saved state
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState)
-        } else {
-            webView.loadUrl("file:///android_asset/web/index.html")
+        // Recreate the document at the fixed origin; app UI/playback state lives in persistent storage.
+        if (storageMigration.isComplete()) launchStableWebContent() else loadTrustedPage(LEGACY_WEB_URL)
+    }
+
+    private fun isTrustedPage(url: String?): Boolean {
+        val document = url?.substringBefore('#') ?: return false
+        return document == STABLE_WEB_URL || document == LEGACY_WEB_URL
+    }
+
+    private fun isMigratingLegacyPage(): Boolean = currentLocalDocument == LEGACY_WEB_URL &&
+        ::storageMigration.isInitialized && !storageMigration.legacyFallback
+
+    private fun loadTrustedPage(url: String) {
+        require(isTrustedPage(url))
+        webLaunchToken = UUID.randomUUID().toString()
+        currentLocalDocument = url
+        webView.loadUrl(url)
+    }
+
+    private fun launchStableWebContent() {
+        try {
+            webContentStore.prepareLaunch()
+            webLaunchHealthy = false
+            mainHandler.removeCallbacks(webHealthTimeout)
+            mainHandler.postDelayed(webHealthTimeout, 30000)
+            loadTrustedPage(STABLE_WEB_URL)
+        } catch (_: Exception) {
+            mainHandler.removeCallbacks(webHealthTimeout)
+            if (storageMigration.isComplete()) {
+                // Once migrated, all recoveries keep the same origin and user data, even if disk is full.
+                webContentStore.useBundledForSession()
+                loadTrustedPage(STABLE_WEB_URL)
+            } else {
+                storageMigration.useLegacyFallback()
+                loadTrustedPage(LEGACY_WEB_URL)
+            }
+            Toast.makeText(this, "网页更新暂不可用，已恢复内置界面", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun recoverWebLaunch() {
+        mainHandler.removeCallbacks(webHealthTimeout)
+        if (!storageMigration.isComplete()) {
+            storageMigration.useLegacyFallback()
+            loadTrustedPage(LEGACY_WEB_URL)
+        } else if (!recoveredWebLaunch) {
+            recoveredWebLaunch = true
+            Toast.makeText(this, "新版界面未完成启动，正在恢复上个版本", Toast.LENGTH_LONG).show()
+            launchStableWebContent()
+        }
+    }
+
+    fun reloadUpdatedWebContent() {
+        runOnUiThread {
+            recoveredWebLaunch = false
+            if (storageMigration.isComplete()) launchStableWebContent()
+            else {
+                Toast.makeText(this, "本地数据迁移尚未完成，请下次启动时重试", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -453,6 +602,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::updater.isInitialized) updater.onResume()
         musicService?.let { service ->
             val playing = service.isPlaying
             val pos = service.currentPosition
@@ -477,6 +627,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         stopProgressPolling()
+        mainHandler.removeCallbacks(webHealthTimeout)
+        if (::updater.isInitialized) updater.close()
         if (isBound) {
             unbindService(connection)
             isBound = false

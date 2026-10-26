@@ -23,8 +23,8 @@ android {
         applicationId = "com.salt.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.2.1"
+        versionCode = 14
+        versionName = "1.3.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -65,6 +65,23 @@ android {
     }
 }
 
+// Keep the APK's resource inventory in sync with the exact files being packaged.
+// Increment auraWebVersion for a new bundled UI; web-only releases use the publisher CLI.
+val generateUpdateBase by tasks.registering(Exec::class) {
+    val webVersion = providers.gradleProperty("auraWebVersion").orElse("1")
+    val nativeVersion = android.defaultConfig.versionCode!!
+    inputs.dir("src/main/assets/web")
+    inputs.file(rootProject.file("scripts/updates/package.cjs"))
+    inputs.property("webVersion", webVersion)
+    inputs.property("nativeVersion", nativeVersion)
+    outputs.file("src/main/assets/update-base.json")
+    workingDir(rootProject.projectDir)
+    commandLine("node", "scripts/updates/package.cjs", "--mode", "base",
+        "--web-version", webVersion.get(), "--native-min", nativeVersion.toString(),
+        "--native-max", nativeVersion.toString())
+}
+tasks.named("preBuild").configure { dependsOn(generateUpdateBase) }
+
 // Never accidentally distribute an unsigned release when local secrets are absent.
 gradle.taskGraph.whenReady {
     if (!hasReleaseSigning && allTasks.any { it.name == "packageRelease" || it.name == "signReleaseBundle" }) {
@@ -73,6 +90,8 @@ gradle.taskGraph.whenReady {
 }
 
 dependencies {
+    implementation("androidx.webkit:webkit:1.10.0")
+    testImplementation("org.json:json:20240303")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

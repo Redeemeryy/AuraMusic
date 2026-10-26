@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -94,6 +95,10 @@
             <meta-data android:name="com.vivo.liveNotification.type" android:value="music" />
             <meta-data android:name="vivo.liveNotification.support" android:value="true" />
         </service>
+
+        <receiver
+            android:name=".updates.UpdateInstallReceiver"
+            android:exported="false" />
 
         <receiver
             android:name="androidx.media.session.MediaButtonReceiver"
