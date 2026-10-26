@@ -1,0 +1,29 @@
+/* Low-contrast contour paper remains readable when GPU effects are unavailable. */
+.song-scene {
+  isolation: isolate;
+  background-color: #f1f4fa !important;
+  background-image: radial-gradient(ellipse at 95% 10%,#c3dce34a,transparent 65%),repeating-radial-gradient(ellipse at 120% -10%,transparent 0 38px,#8099b118 39px 40px,transparent 41px 65px) !important;
+}
+.song-glass-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+html body :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) { gap: 9px !important; }
+html body :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) > .song-glass-row {
+  position: relative; border-radius: 18px; padding: 10px 12px;
+  background: #ffffff66 !important; border: 1px solid #ffffff70 !important;
+  box-shadow: 0 2px 6px #26385106 !important;
+  min-width: 0; contain: none;
+}
+html body .song-scene.refraction-ready :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) > .song-glass-row {
+  background: transparent !important; border-color: #ffffff20 !important; box-shadow: none !important;
+}
+html body #queueOverlay #queueList .song-glass-row { padding: 2px 10px; }
+html body #queueOverlay #queueList .queue-item-active { border-color: #5e94cb3d !important; }
+html body #queueOverlay #queueList .queue-item-active .queue-copy strong { color: #0066c2; }
+.song-glass-row:focus-visible, .song-glass-row:focus-within { outline-offset: 2px; }
+.reduce-transparency .song-glass-canvas { display: none; }
+html.reduce-transparency body .song-scene :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) > .song-glass-row { background: #fdfefe !important; border-color: #dce3ec !important; }
+html.reduce-transparency body #queueOverlay #queueList > .song-glass-row.queue-item-active { background: #e4edf7 !important; }
+@media (prefers-reduced-transparency: reduce) {
+  .song-glass-canvas { display: none !important; }
+  html body .song-scene :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) > .song-glass-row { background: #fdfefe !important; border-color: #dce3ec !important; }
+  html body #queueOverlay #queueList > .song-glass-row.queue-item-active { background: #e4edf7 !important; }
+}

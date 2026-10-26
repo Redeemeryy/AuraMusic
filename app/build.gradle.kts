@@ -20,11 +20,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.auramusic.app"
+        applicationId = "com.salt.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.2.0-beta.2"
+        versionCode = 12
+        versionName = "1.2.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -73,6 +73,8 @@ gradle.taskGraph.whenReady {
 }
 
 dependencies {
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")

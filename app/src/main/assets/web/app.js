@@ -144,6 +144,12 @@
     btnClosePlaylistDetail: document.getElementById('btnClosePlaylistDetail'),
     btnPlayAllPlaylist: document.getElementById('btnPlayAllPlaylist'),
     btnFavPlaylist: document.getElementById('btnFavPlaylist'),
+    btnEditPlaylist: document.getElementById('btnEditPlaylist'),
+    playlistEditHint: document.getElementById('playlistEditHint'),
+    playlistEditToolbar: document.getElementById('playlistEditToolbar'),
+    playlistEditStatus: document.getElementById('playlistEditStatus'),
+    btnCancelPlaylistEdit: document.getElementById('btnCancelPlaylistEdit'),
+    btnRemovePlaylistTracks: document.getElementById('btnRemovePlaylistTracks'),
     favPlaylistIcon: document.getElementById('favPlaylistIcon'),
     favPlaylistText: document.getElementById('favPlaylistText'),
     btnExportPlaylist: document.getElementById('btnExportPlaylist'),
@@ -417,6 +423,7 @@
       state.searchType = type;
       el.searchTypeTabs.forEach(t => {
         const isActive = t.getAttribute('data-type') === type;
+        t.setAttribute('aria-pressed', String(isActive));
         t.className = isActive 
           ? 'search-type-tab text-[13px] font-bold text-primary active-squish flex items-center gap-1'
           : 'search-type-tab text-[13px] font-semibold text-on-surface-variant hover:text-on-surface active-squish flex items-center gap-1';
@@ -438,19 +445,15 @@
   el.sourceTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       el.sourceTabs.forEach(t => {
+        t.setAttribute('aria-pressed', 'false');
         t.className = 'source-tab px-3.5 py-1.5 rounded-full text-[12px] font-semibold bg-white/70 text-on-surface-variant hover:text-on-surface whitespace-nowrap active-squish';
       });
       tab.className = 'source-tab px-3.5 py-1.5 rounded-full text-[12px] font-bold bg-primary text-white shadow-sm whitespace-nowrap active-squish';
+      tab.setAttribute('aria-pressed', 'true');
       state.currentSource = tab.getAttribute('data-source');
       
-      const sourceName = tab.textContent.trim();
       const currentQuery = el.searchInput.value.trim();
-      const query = currentQuery || '热歌';
-      if (!currentQuery) {
-        el.searchInput.value = '热歌';
-        el.btnClearSearch.classList.remove('hidden');
-      }
-      performSearch(query);
+      if (currentQuery) performSearch(currentQuery);
     });
   });
 
@@ -458,6 +461,7 @@
   window.switchView = switchView;
 
   // Perform Search (Songs or Playlists)
+  let searchGeneration = 0;
   async function performSearch(query) {
     console.log('[APP] performSearch called with query:', query, 'type:', state.searchType);
     if (!query) return;
@@ -466,6 +470,8 @@
       openPluginModal();
       return;
     }
+    const generation = ++searchGeneration;
+    el.btnClearSearch.classList.toggle('hidden', !el.searchInput.value);
     el.hotSearchSection.classList.add('hidden');
     el.searchResultsSection.classList.remove('hidden');
     el.searchLoading.classList.remove('hidden');
@@ -476,9 +482,10 @@
       el.searchPlaylistsList.innerHTML = '';
       try {
         const res = await window.MusicAPI.searchPlaylists(query, state.currentSource, 1, 20);
+        if (generation !== searchGeneration) return;
         el.searchLoading.classList.add('hidden');
         const items = res.items || [];
-        el.searchResultCount.textContent = `命中 ${items.length} 个歌单 (${state.currentSource.toUpperCase()})`;
+        el.searchResultCount.textContent = `${items.length} 个歌单`;
         if (items.length === 0) {
           el.searchPlaylistsList.innerHTML = '<div class="col-span-2 text-center py-8 text-[13px] text-outline">未找到相关歌单，请尝试更换关键词或平台</div>';
           return;
@@ -495,6 +502,7 @@
           el.searchPlaylistsList.appendChild(card);
         });
       } catch (err) {
+        if (generation !== searchGeneration) return;
         el.searchLoading.classList.add('hidden');
         el.searchPlaylistsList.innerHTML = `<div class="col-span-2 text-center py-8 text-[13px] text-red-500">搜索歌单出错: ${err.message || '网络超时'}</div>`;
       }
@@ -504,9 +512,10 @@
       el.searchResultsList.innerHTML = '';
       try {
         const res = await window.MusicAPI.search(query, state.currentSource, 1, 30);
+        if (generation !== searchGeneration) return;
         el.searchLoading.classList.add('hidden');
         const items = res.items || [];
-        el.searchResultCount.textContent = `命中 ${items.length} 条曲目 (${state.currentSource.toUpperCase()})`;
+        el.searchResultCount.textContent = `${items.length} 首歌曲`;
         if (items.length === 0) {
           el.searchResultsList.innerHTML = '<div class="text-center py-8 text-[13px] text-outline">未找到相关歌曲，请尝试切换音源平台</div>';
           return;
@@ -518,6 +527,7 @@
           el.searchResultsList.appendChild(itemEl);
         });
       } catch (err) {
+        if (generation !== searchGeneration) return;
         el.searchLoading.classList.add('hidden');
         el.searchResultsList.innerHTML = `<div class="text-center py-8 text-[13px] text-red-500">搜索发生错误: ${err.message || '网络连接超时'}</div>`;
       }
@@ -582,14 +592,38 @@
   }
 
   // Create Playlist Card
+  function importedTrackArtwork(track) {
+    return track?.artworkUrl || track?.metadata?.coverUrl || track?.metadata?.artworkUrl || track?.img || track?.data?.song?.img || '';
+  }
+
+  function playlistArtwork(pl) {
+    return Array.isArray(pl.tracks) ? importedTrackArtwork(pl.tracks[0]) : (pl.playlist?.artworkUrl || pl.artworkUrl || '');
+  }
+
+  function samePlaylist(a, b) {
+    const ar = a.ref || {}, br = b.ref || {};
+    if (ar.id && br.id && String(ar.id) === String(br.id) && ar.providerId === br.providerId) return true;
+    // Older imported records used time-based IDs. Merge only exact content
+    // matches, never unrelated playlists which happen to share a title.
+    return ar.pluginId === 'ceru-music-importer' && br.pluginId === 'ceru-music-importer'
+      && String(ar.id || '').startsWith('imported_') && String(br.id || '').startsWith('imported_')
+      && ar.providerId === br.providerId && a.title === b.title
+      && (a.author || a.playlist?.author || '') === (b.author || b.playlist?.author || '')
+      && a.tracks?.length > 0 && a.tracks.length === b.tracks?.length
+      && a.tracks.every((track, i) => track.ref?.id && String(track.ref.id) === String(b.tracks[i].ref?.id)
+        && track.ref.providerId === b.tracks[i].ref?.providerId);
+  }
+
   function createPlaylistCard(pl, onClick, options = {}) {
     const div = document.createElement('div');
     div.className = 'jelly-glass rounded-2xl p-2.5 flex flex-col gap-2 cursor-pointer active-squish shadow-sm hover:shadow-md transition-all relative';
     const title = pl.title || '歌单';
     const author = pl.playlist?.author || pl.subtitle || pl.author || '精选推荐';
     const fallback = createFallbackCover(title, author);
-    const artwork = pl.playlist?.artworkUrl || pl.artworkUrl || fallback;
-    const count = pl.playlist?.trackCount ? `${pl.playlist.trackCount} 首` : (pl.tracks?.length ? `${pl.tracks.length} 首` : '');
+    const artwork = playlistArtwork(pl) || fallback;
+    const count = pl.locallyEdited ? `${pl.tracks?.length || 0} 首 · 本地已编辑` : pl.importStatus?.complete === false
+      ? `${pl.tracks?.length || 0} / ${pl.importStatus.total || '?'} 首 · 未完整`
+      : (Array.isArray(pl.tracks) ? `${pl.tracks.length} 首` : (pl.playlist?.trackCount ? `${pl.playlist.trackCount} 首` : ''));
     const source = pl.ref?.providerId?.toUpperCase() || 'TX';
     const isLibraryCard = options.isLibraryCard === true;
 
@@ -615,14 +649,7 @@
       if (unfavBtn) {
         unfavBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const pid = pl.ref?.id || pl.id;
-          const pTitle = (pl.title || '').trim().toLowerCase();
-          state.favoritePlaylists = state.favoritePlaylists.filter(item => {
-            const savedId = item.ref?.id || item.id;
-            if (pid && savedId && pid === savedId) return false;
-            if (pTitle && item.title && item.title.trim().toLowerCase() === pTitle) return false;
-            return true;
-          });
+          state.favoritePlaylists = state.favoritePlaylists.filter(item => !samePlaylist(item, pl));
           try {
             localStorage.setItem('jelly_fav_playlists', JSON.stringify(state.favoritePlaylists));
           } catch (err) {}
@@ -1057,7 +1084,7 @@
     syncAllQualityBadges();
     const artwork = resolveTrackArtwork(track);
     el.fullCover.src = artwork;
-    el.fullPlayerOverlay.style.setProperty('--player-artwork', `url(${JSON.stringify(artwork)})`);
+    window.AuraBackdrop?.setArtwork(artwork, createFallbackCover(track.title, el.fullArtist.textContent));
     el.fullCover.onerror = () => { el.fullCover.src = createFallbackCover(track.title, el.fullArtist.textContent); };
     updateFavHeart();
   }
@@ -1308,22 +1335,117 @@
   let currentPlaylistTracks = [];
   let currentPlaylistRef = null;
   let currentPlaylistInfo = null;
+  let playlistDetailRequest = 0;
+  let playlistTracksLoaded = false;
+  let playlistEditing = false;
+  const playlistSelectedIndices = new Set();
+
+  function currentSavedPlaylist() {
+    return state.favoritePlaylists.find(pl => samePlaylist(pl, { ...currentPlaylistInfo, ref: currentPlaylistRef }));
+  }
+
+  function updatePlaylistEditControls() {
+    const saved = currentSavedPlaylist();
+    el.btnEditPlaylist.disabled = !saved || !playlistTracksLoaded || currentPlaylistTracks.length === 0;
+    el.playlistEditHint.textContent = !saved ? '先收藏到本机，即可编辑歌曲' : '仅修改本机歌单，不影响平台账号或播放队列';
+    el.playlistEditToolbar.hidden = !playlistEditing;
+    el.playlistDetailOverlay.classList.toggle('playlist-editing', playlistEditing);
+    el.btnRemovePlaylistTracks.disabled = playlistSelectedIndices.size === 0;
+    el.btnRemovePlaylistTracks.textContent = `移除所选（${playlistSelectedIndices.size}）`;
+  }
+
+  function renderCurrentPlaylistTracks() {
+    const info = currentPlaylistInfo || {};
+    el.plDetailCount.textContent = info.locallyEdited ? `共 ${currentPlaylistTracks.length} 首歌曲 · 本地已编辑`
+      : info.importStatus?.complete === false ? `已获取 ${currentPlaylistTracks.length} / ${info.importStatus.total || '?'} 首歌曲 · 未完整`
+      : `共 ${currentPlaylistTracks.length} 首歌曲`;
+    const fallback = createFallbackCover(info.title, info.author);
+    el.plDetailCover.src = importedTrackArtwork(currentPlaylistTracks[0]) || fallback;
+    el.plDetailCover.onerror = () => { el.plDetailCover.onerror = null; el.plDetailCover.src = fallback; };
+    el.plDetailTracksList.innerHTML = '';
+    if (!currentPlaylistTracks.length) {
+      el.plDetailTracksList.innerHTML = '<div class="text-center py-8 text-[13px] text-outline">暂无歌曲</div>';
+    } else {
+      const fragment = document.createDocumentFragment();
+      currentPlaylistTracks.forEach((track, idx) => {
+        if (playlistEditing) {
+          const row = document.createElement('label');
+          row.className = 'playlist-select-row jelly-glass';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.setAttribute('aria-label', `选择 ${track.title || '未知歌曲'}`);
+          checkbox.checked = playlistSelectedIndices.has(idx);
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) playlistSelectedIndices.add(idx); else playlistSelectedIndices.delete(idx);
+            el.playlistEditStatus.textContent = `已选择 ${playlistSelectedIndices.size} 首，仅从本机歌单移除`;
+            updatePlaylistEditControls();
+          });
+          const title = document.createElement('span');
+          title.textContent = track.title || '未知歌曲';
+          row.append(checkbox, title);
+          fragment.appendChild(row);
+        } else {
+          fragment.appendChild(createTrackItem(track, () => {
+            setQueue(currentPlaylistTracks, idx, info.title || '精选歌单');
+            playTrack(track);
+          }));
+        }
+      });
+      el.plDetailTracksList.appendChild(fragment);
+    }
+    updatePlaylistEditControls();
+  }
+
+  function cancelPlaylistEdit() {
+    playlistEditing = false;
+    playlistSelectedIndices.clear();
+    renderCurrentPlaylistTracks();
+  }
+
+  el.btnEditPlaylist.addEventListener('click', () => {
+    if (!currentSavedPlaylist() || !playlistTracksLoaded || !currentPlaylistTracks.length) return;
+    playlistEditing = true;
+    playlistSelectedIndices.clear();
+    el.playlistEditStatus.textContent = '请选择要移除的歌曲';
+    renderCurrentPlaylistTracks();
+  });
+  el.btnCancelPlaylistEdit.addEventListener('click', cancelPlaylistEdit);
+  el.btnRemovePlaylistTracks.addEventListener('click', () => {
+    const saved = currentSavedPlaylist();
+    if (!playlistEditing || !saved || !playlistSelectedIndices.size) return;
+    const tracks = currentPlaylistTracks.filter((_, idx) => !playlistSelectedIndices.has(idx));
+    const artworkUrl = importedTrackArtwork(tracks[0]);
+    const updatedPlaylist = { ...saved, tracks, artworkUrl, locallyEdited: true,
+      originalImportFingerprint: saved.originalImportFingerprint || playlistImportFingerprint(currentPlaylistTracks),
+      subtitle: `${tracks.length} 首歌曲 • ${saved.author || saved.playlist?.author || '本地歌单'}`,
+      playlist: { ...saved.playlist, artworkUrl, trackCount: tracks.length } };
+    const updated = state.favoritePlaylists.map(pl => pl === saved ? updatedPlaylist : pl);
+    try {
+      // Commit the durable snapshot before changing any visible or in-memory state.
+      localStorage.setItem('jelly_fav_playlists', JSON.stringify(updated));
+    } catch (error) {
+      el.playlistEditStatus.textContent = `保存失败：${error.message || '存储不可用'}，原歌单已保留，可重试`;
+      return;
+    }
+    const removedCount = playlistSelectedIndices.size;
+    state.favoritePlaylists = updated;
+    currentPlaylistInfo = updatedPlaylist;
+    currentPlaylistTracks = tracks;
+    cancelPlaylistEdit();
+    renderLibrary();
+    try { localStorage.setItem('jelly_open_playlist', JSON.stringify({ ref: currentPlaylistRef, info: updatedPlaylist })); } catch (e) {}
+    toast(`已从本机歌单移除 ${removedCount} 首歌曲`);
+  });
 
   function isPlaylistFavorited(ref, info) {
     if (!state.favoritePlaylists || state.favoritePlaylists.length === 0) return false;
-    const pid = ref?.id || info?.id;
-    const pTitle = (info?.title || '').trim().toLowerCase();
-    return state.favoritePlaylists.some(pl => {
-      const savedId = pl.ref?.id || pl.id;
-      if (pid && savedId && pid === savedId) return true;
-      if (pTitle && pl.title && pl.title.trim().toLowerCase() === pTitle) return true;
-      return false;
-    });
+    return state.favoritePlaylists.some(pl => samePlaylist(pl, { ...info, ref }));
   }
 
   function updatePlaylistFavButton() {
     if (!el.btnFavPlaylist || !el.favPlaylistIcon || !el.favPlaylistText) return;
     const isFav = isPlaylistFavorited(currentPlaylistRef, currentPlaylistInfo);
+    updatePlaylistEditControls();
     if (isFav) {
       el.favPlaylistIcon.textContent = 'favorite';
       el.favPlaylistIcon.className = 'material-symbols-outlined text-[18px] text-red-500 fill-1';
@@ -1341,17 +1463,11 @@
 
   function toggleFavoriteCurrentPlaylist() {
     if (!currentPlaylistRef && !currentPlaylistInfo) return;
+    if (playlistEditing) return;
     const isFav = isPlaylistFavorited(currentPlaylistRef, currentPlaylistInfo);
+    let updated;
     if (isFav) {
-      const pid = currentPlaylistRef?.id || currentPlaylistInfo?.id;
-      const pTitle = (currentPlaylistInfo?.title || '').trim().toLowerCase();
-      state.favoritePlaylists = state.favoritePlaylists.filter(pl => {
-        const savedId = pl.ref?.id || pl.id;
-        if (pid && savedId && pid === savedId) return false;
-        if (pTitle && pl.title && pl.title.trim().toLowerCase() === pTitle) return false;
-        return true;
-      });
-      toast('已取消收藏歌单');
+      updated = state.favoritePlaylists.filter(pl => !samePlaylist(pl, { ...currentPlaylistInfo, ref: currentPlaylistRef }));
     } else {
       const plItem = {
         ref: currentPlaylistRef,
@@ -1362,17 +1478,21 @@
         playlist: {
           author: currentPlaylistInfo.author || el.plDetailAuthor.textContent,
           artworkUrl: currentPlaylistInfo.artworkUrl || el.plDetailCover.src,
-          trackCount: currentPlaylistTracks.length || currentPlaylistInfo.trackCount || 0
+          trackCount: playlistTracksLoaded ? currentPlaylistTracks.length : currentPlaylistInfo.trackCount || 0
         },
-        tracks: currentPlaylistTracks.length > 0 ? currentPlaylistTracks : undefined
+        tracks: playlistTracksLoaded ? currentPlaylistTracks : undefined,
+        importStatus: currentPlaylistInfo.importStatus,
+        locallyEdited: currentPlaylistInfo.locallyEdited,
+        originalImportFingerprint: currentPlaylistInfo.originalImportFingerprint
       };
-      state.favoritePlaylists.unshift(plItem);
-      toast('已收藏歌单');
+      updated = [plItem, ...state.favoritePlaylists];
     }
 
     try {
-      localStorage.setItem('jelly_fav_playlists', JSON.stringify(state.favoritePlaylists));
-    } catch (e) {}
+      localStorage.setItem('jelly_fav_playlists', JSON.stringify(updated));
+    } catch (e) { toast(`保存失败：${e.message || '存储不可用'}，原歌单已保留`); return; }
+    state.favoritePlaylists = updated;
+    toast(isFav ? '已取消收藏歌单' : '已收藏歌单');
     updatePlaylistFavButton();
     renderLibrary();
   }
@@ -1382,6 +1502,14 @@
   }
 
   async function openPlaylistDetail(ref, info, saveState = true) {
+    const request = ++playlistDetailRequest;
+    // Saved local edits always win over a stale open-page snapshot or online card.
+    const saved = state.favoritePlaylists.find(pl => samePlaylist(pl, { ...info, ref }));
+    if (saved) info = { ...info, ...saved, author: saved.author || saved.playlist?.author || info.author };
+    playlistEditing = false;
+    playlistSelectedIndices.clear();
+    currentPlaylistTracks = [];
+    playlistTracksLoaded = false;
     currentPlaylistRef = ref;
     currentPlaylistInfo = info;
     updatePlaylistFavButton();
@@ -1399,28 +1527,15 @@
     el.plDetailTitle.textContent = info.title || '精选歌单';
     el.plDetailAuthor.textContent = info.author || '澜音推荐';
     const plFallback = createFallbackCover(info.title, info.author);
-    el.plDetailCover.src = info.artworkUrl || plFallback;
+    el.plDetailCover.src = playlistArtwork(info) || plFallback;
     el.plDetailCover.onerror = () => { el.plDetailCover.src = plFallback; };
     el.plDetailSourceBadge.textContent = info.sourceBadge || `${(ref?.providerId || 'TX').toUpperCase()} 音源`;
 
     // Direct tracks provided (e.g. Daily Taste Recommendation 30 tracks)
     if (info.tracks && Array.isArray(info.tracks)) {
       currentPlaylistTracks = info.tracks;
-      el.plDetailCount.textContent = `共 ${info.tracks.length} 首歌曲`;
-      el.plDetailTracksList.innerHTML = '';
-      if (info.tracks.length === 0) {
-        el.plDetailTracksList.innerHTML = '<div class="text-center py-8 text-[13px] text-outline">暂无歌曲</div>';
-        return;
-      }
-      const fragment = document.createDocumentFragment();
-      info.tracks.forEach((track, idx) => {
-        const itemEl = createTrackItem(track, () => {
-          setQueue(info.tracks, idx, info.title || '精选歌单');
-          playTrack(track);
-        });
-        fragment.appendChild(itemEl);
-      });
-      el.plDetailTracksList.appendChild(fragment);
+      playlistTracksLoaded = true;
+      renderCurrentPlaylistTracks();
       return;
     }
 
@@ -1429,29 +1544,23 @@
 
     try {
       const res = await window.MusicAPI.getPlaylistDetail(ref.id, ref.providerId || 'tx');
+      if (request !== playlistDetailRequest) return;
       const items = res?.items || [];
       currentPlaylistTracks = items;
-      el.plDetailCount.textContent = `共 ${items.length} 首歌曲`;
-      el.plDetailTracksList.innerHTML = '';
-      if (items.length === 0) {
-        el.plDetailTracksList.innerHTML = '<div class="text-center py-8 text-[13px] text-outline">歌单为空或该平台暂未开放列表</div>';
-        return;
-      }
-      const fragment = document.createDocumentFragment();
-      items.forEach((track, idx) => {
-        const itemEl = createTrackItem(track, () => {
-          setQueue(items, idx, info.title || el.plDetailTitle.textContent || '精选歌单');
-          playTrack(track);
-        });
-        fragment.appendChild(itemEl);
-      });
-      el.plDetailTracksList.appendChild(fragment);
+      playlistTracksLoaded = true;
+      currentPlaylistInfo = { ...info, tracks: items, importStatus: { total: res?.total || items.length, complete: res?.complete !== false, warning: res?.warning || '' } };
+      renderCurrentPlaylistTracks();
     } catch (err) {
+      if (request !== playlistDetailRequest) return;
       el.plDetailTracksList.innerHTML = `<div class="text-center py-8 text-[13px] text-red-500">加载歌单失败: ${err.message || '网络超时'}</div>`;
     }
   }
 
   function closePlaylistDetail() {
+    ++playlistDetailRequest;
+    playlistEditing = false;
+    playlistSelectedIndices.clear();
+    updatePlaylistEditControls();
     try {
       localStorage.removeItem('jelly_open_playlist');
     } catch (e) {}
@@ -1477,6 +1586,7 @@
   let plIsSwiping = false;
 
   el.playlistDetailOverlay.addEventListener('touchstart', (e) => {
+    if (playlistEditing) { plIsSwiping = false; return; }
     if (el.playlistDetailOverlay.classList.contains('translate-y-full')) return;
     if (el.plDetailTracksList && el.plDetailTracksList.scrollTop > 5) return;
     plTouchStartY = e.touches[0].clientY;
@@ -1485,6 +1595,7 @@
   }, { passive: true });
 
   el.playlistDetailOverlay.addEventListener('touchmove', (e) => {
+    if (playlistEditing) return;
     if (el.playlistDetailOverlay.classList.contains('translate-y-full')) return;
     if (el.plDetailTracksList && el.plDetailTracksList.scrollTop > 5) return;
     const currentY = e.touches[0].clientY;
@@ -1851,6 +1962,10 @@
 
   // Back Button Press Hierarchical Dismissal
   window.handleBackPress = function() {
+    if (el.qualityModalOverlay?.classList.contains('active')) {
+      closeQualityPickerModal();
+      return true;
+    }
     if (document.getElementById('playModeDialog')?.open) {
       closeModeDialog();
       return true;
@@ -2138,6 +2253,21 @@
 
   // Render Library (Playlists Cards, Favorite Songs with unfavorite button, Recent History)
   function renderLibrary() {
+    const uniquePlaylists = [];
+    state.favoritePlaylists.forEach(pl => {
+      const index = uniquePlaylists.findIndex(saved => samePlaylist(saved, pl));
+      if (index < 0) uniquePlaylists.push(pl);
+      else if (pl.locallyEdited || (!uniquePlaylists[index].locallyEdited && (pl.tracks?.length || 0) > (uniquePlaylists[index].tracks?.length || 0))) uniquePlaylists[index] = pl;
+    });
+    if (uniquePlaylists.length !== state.favoritePlaylists.length) {
+      try {
+        if (!localStorage.getItem('jelly_fav_playlists_before_dedup')) {
+          localStorage.setItem('jelly_fav_playlists_before_dedup', JSON.stringify(state.favoritePlaylists));
+        }
+        localStorage.setItem('jelly_fav_playlists', JSON.stringify(uniquePlaylists));
+        state.favoritePlaylists = uniquePlaylists;
+      } catch (err) { console.warn('歌单去重未能保存，保留原有记录', err); }
+    }
     if (el.favSongCount) {
       el.favSongCount.textContent = `${state.favorites.length} 首歌曲 • ${state.favoritePlaylists.length} 个歌单`;
     }
@@ -2194,9 +2324,10 @@
         openPlaylistDetail(pl.ref, {
           title: pl.title,
           author: pl.subtitle || pl.playlist?.author || pl.author || '精选推荐',
-          artworkUrl: pl.playlist?.artworkUrl || pl.artworkUrl,
+          artworkUrl: playlistArtwork(pl),
           trackCount: pl.playlist?.trackCount,
-          tracks: pl.tracks
+          tracks: pl.tracks,
+          importStatus: pl.importStatus
         });
       }, { isLibraryCard: true });
       fragment.appendChild(card);
@@ -2734,9 +2865,11 @@
     el.btnClearSearch.classList.toggle('hidden', !el.searchInput.value);
   });
   el.btnClearSearch.addEventListener('click', () => {
+    searchGeneration++;
     el.searchInput.value = '';
     el.btnClearSearch.classList.add('hidden');
     el.searchResultsSection.classList.add('hidden');
+    el.searchLoading.classList.add('hidden');
     el.hotSearchSection.classList.remove('hidden');
   });
 
@@ -2782,6 +2915,8 @@
     if (!el.qualityModalOverlay) return;
     el.qualityModalOverlay.classList.remove('pointer-events-none');
     el.qualityModalOverlay.classList.add('active');
+    el.qualityModalOverlay.setAttribute('aria-hidden', 'false');
+    el.btnCloseQualityModal.focus({ preventScroll: true });
     
     // Highlight currently active quality option and checkmark
     const currentQ = state.currentQuality || state.preferredQuality || '320k';
@@ -2794,6 +2929,7 @@
       const q = opt.getAttribute('data-quality');
       const optTier = getPreferredTier(q);
       const isSelected = optTier === currentTier;
+      opt.setAttribute('aria-pressed', String(isSelected));
       const checkIcon = opt.querySelector('.quality-check-icon');
       if (checkIcon) checkIcon.classList.toggle('hidden', !isSelected);
       opt.classList.toggle('border-primary', isSelected);
@@ -2824,7 +2960,7 @@
         }
 
         if (isAvail) {
-          badge.textContent = '当前支持';
+          badge.textContent = '音源标注';
           badge.className = 'quality-avail-badge text-[10px] px-1.5 py-0.5 rounded font-bold ml-2 bg-emerald-500/10 text-emerald-600';
           opt.style.opacity = '1';
         } else {
@@ -2842,6 +2978,8 @@
   function closeQualityPickerModal() {
     if (!el.qualityModalOverlay) return;
     el.qualityModalOverlay.classList.remove('active');
+    el.qualityModalOverlay.setAttribute('aria-hidden', 'true');
+    el.fullQualityPill?.focus({ preventScroll: true });
     setTimeout(() => {
       if (!el.qualityModalOverlay.classList.contains('active')) {
         el.qualityModalOverlay.classList.add('pointer-events-none');
@@ -2861,6 +2999,15 @@
   }
 
   if (el.qualityModalOverlay) {
+    el.qualityModalOverlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeQualityPickerModal(); }
+      if (e.key === 'Tab') {
+        const buttons = [...el.qualityModalOverlay.querySelectorAll('button:not([disabled])')];
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
     el.qualityModalOverlay.addEventListener('click', (e) => {
       if (e.target === el.qualityModalOverlay) closeQualityPickerModal();
     });
@@ -3374,14 +3521,28 @@
   const dismissedAppReleaseTags = new Set();
 
   function compareSemver(v1, v2) {
-    const parse = v => (v || '').replace(/^[^\d]*/, '').split('.').map(n => parseInt(n, 10) || 0);
+    const parse = v => {
+      const [core, ...suffix] = (v || '').replace(/^[^\d]*/, '').split('+')[0].split('-');
+      return { core: core.split('.').map(n => parseInt(n, 10) || 0), pre: suffix.length ? suffix.join('-').split('.') : [] };
+    };
     const p1 = parse(v1);
     const p2 = parse(v2);
-    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-      const num1 = p1[i] || 0;
-      const num2 = p2[i] || 0;
+    for (let i = 0; i < Math.max(p1.core.length, p2.core.length); i++) {
+      const num1 = p1.core[i] || 0;
+      const num2 = p2.core[i] || 0;
       if (num1 > num2) return 1;
       if (num1 < num2) return -1;
+    }
+    if (!p1.pre.length || !p2.pre.length) return p1.pre.length ? -1 : p2.pre.length ? 1 : 0;
+    for (let i = 0; i < Math.max(p1.pre.length, p2.pre.length); i++) {
+      const a = p1.pre[i], b = p2.pre[i];
+      if (a === b) continue;
+      if (a === undefined) return -1;
+      if (b === undefined) return 1;
+      const aNumber = /^\d+$/.test(a), bNumber = /^\d+$/.test(b);
+      if (aNumber && bNumber) return Number(a) > Number(b) ? 1 : -1;
+      if (aNumber !== bNumber) return aNumber ? -1 : 1;
+      return a > b ? 1 : -1;
     }
     return 0;
   }
@@ -4230,7 +4391,8 @@
     const subtitle = state.dailyRecSummary?.subtitle || '根据你收藏的歌曲与歌手风格量身定制 · 每天自动更新';
     
     openPlaylistDetail(
-      { id: 'daily-rec', providerId: 'jelly' },
+      // Local-only snapshot identity: stable for this date and ordered track set.
+      { id: 'daily-rec:' + getTodayDateString() + ':' + playlistImportFingerprint(state.dailyRecTracks), providerId: 'jelly' },
       {
         title: dateTitle,
         author: subtitle,
@@ -4329,7 +4491,7 @@
 
   function normalizeImportedSong(song) {
     if (!song) return null;
-    if (song.title && song.ref && song.ref.id) return song;
+    if (song.title && song.ref && song.ref.id) return { ...song, artworkUrl: importedTrackArtwork(song) };
 
     const title = song.name || song.title || '未知曲目';
     const singer = song.singer || song.artist || (Array.isArray(song.artists) ? song.artists.join(' / ') : '') || '未知歌手';
@@ -4425,6 +4587,8 @@
   async function parsePlaylistContent(rawTextOrBuffer, fileNameOrHint = '') {
     let playlistName = fileNameOrHint ? fileNameOrHint.replace(/\.(cmpl|cpl|lxmc|json)$/i, '') : '';
     let songItems = [];
+    let sourceRef = null;
+    let importStatus = null;
 
     // Case 1: Binary ArrayBuffer (.cmpl or .lxmc)
     if (rawTextOrBuffer instanceof ArrayBuffer) {
@@ -4465,14 +4629,14 @@
       const isPureNumericId = /^\d{5,14}$/.test(content);
 
       // Case 1: Online Playlist Share URL, Share Text or Playlist ID (Priority 1)
-      if (hasHttp || hasPlatformKeyword || isPureNumericId) {
+      if (!content.startsWith('{') && !content.startsWith('[') && (hasHttp || hasPlatformKeyword || isPureNumericId)) {
         showImportStatus('正在识别网络歌单...', '正在分析歌单平台与编号');
 
         let source = '';
         let playlistId = '';
         let extractedTitle = playlistName || '';
 
-        // Extract title from bracket or share text, e.g. 「生疏丶丶喜欢的音乐」 or 分享歌单: 生疏丶丶喜欢的音乐
+        // Extract a playlist title from brackets or the platform's share-text prefix.
         const bracketMatch = content.match(/[「【『]([^」】』]+)[」】』]/);
         if (bracketMatch) {
           extractedTitle = extractedTitle || bracketMatch[1].trim();
@@ -4569,6 +4733,10 @@
         if (validItems.length > 0) {
           playlistName = extractedTitle || res.title || res.name || `${platformLabel}歌单 (${playlistId})`;
           songItems = validItems;
+          sourceRef = { id: String(playlistId), providerId: source };
+          const total = Math.max(Number(res.total || res.trackCount) || 0, validItems.length);
+          const complete = res.complete !== false && validItems.length >= total;
+          importStatus = { total, complete, warning: res.warning || (complete ? '' : `已获取 ${validItems.length} / ${total} 首，请稍后重新导入补全`) };
         } else {
           throw new Error(`未能获取到 ${platformLabel} 歌单中的歌曲，请确认网络连接及歌单是否为公开歌单`);
         }
@@ -4649,15 +4817,21 @@
     const normalizedTracks = songItems.map(normalizeImportedSong).filter(Boolean);
     return {
       name: playlistName || ('导入歌单 - ' + new Date().toISOString().slice(0, 10)),
-      tracks: normalizedTracks
+      tracks: normalizedTracks,
+      sourceRef,
+      importStatus
     };
   }
 
-  function saveImportedPlaylist(name, tracks) {
+  function playlistImportFingerprint(tracks) {
+    return JSON.stringify(tracks.map(track => [track.ref?.providerId || '', String(track.ref?.id || ''), track.title || '']));
+  }
+
+  function saveImportedPlaylist(name, tracks, result = {}) {
     if (!tracks || tracks.length === 0) throw new Error('歌单曲目为空');
-    const plId = 'imported_' + Date.now();
+    const plId = result.sourceRef?.id || ('imported_' + Date.now());
     const plTitle = name || ('导入歌单 - ' + new Date().toISOString().slice(0, 10));
-    const firstArtwork = tracks.find(t => t.artworkUrl)?.artworkUrl || '';
+    const firstArtwork = importedTrackArtwork(tracks[0]);
 
     const prov = tracks[0]?.ref?.providerId;
     const provName = prov === 'wy' ? '网易云' : (prov === 'tx' ? 'QQ音乐' : (prov === 'kg' ? '酷狗' : '本地导入'));
@@ -4665,7 +4839,7 @@
     const newPlaylist = {
       ref: {
         pluginId: 'ceru-music-importer',
-        providerId: prov || 'tx',
+        providerId: result.sourceRef?.providerId || prov || 'tx',
         kind: 'playlist',
         id: plId
       },
@@ -4678,22 +4852,77 @@
         artworkUrl: firstArtwork,
         trackCount: tracks.length
       },
-      tracks: tracks
+      tracks: tracks,
+      importStatus: result.importStatus || { total: tracks.length, complete: true, warning: '' }
     };
 
-    state.favoritePlaylists.unshift(newPlaylist);
-    try {
-      localStorage.setItem('jelly_fav_playlists', JSON.stringify(state.favoritePlaylists));
-    } catch (e) {}
+    // The old importer discarded source IDs and kept a 100-track preview.
+    // Upgrade only a verified ordered prefix with matching provenance; never
+    // infer identity from a title alone or replace another known source ID.
+    const isLegacyPreview = pl => result.sourceRef && newPlaylist.importStatus.complete === true
+      && pl.ref?.pluginId === 'ceru-music-importer' && /^imported_\d+$/.test(pl.ref?.id || '')
+      && pl.ref.providerId === newPlaylist.ref.providerId && pl.title === newPlaylist.title
+      && (pl.author || pl.playlist?.author) === newPlaylist.author
+      && pl.tracks?.length === 100 && tracks.length >= 100
+      && pl.tracks.every((track, i) => track.ref?.id && String(track.ref.id) === String(tracks[i].ref?.id)
+        && track.ref.providerId === tracks[i].ref?.providerId);
+    const matches = pl => samePlaylist(pl, newPlaylist) || isLegacyPreview(pl)
+      || (pl.locallyEdited && !result.sourceRef && pl.originalImportFingerprint === playlistImportFingerprint(tracks)
+        && pl.title === newPlaylist.title && pl.ref?.providerId === newPlaylist.ref.providerId);
+    const existing = state.favoritePlaylists.find(matches);
+    if (existing?.locallyEdited) {
+      throw new Error('此歌单已经手动编辑，已保留本机修改；如需恢复平台或文件版本，请先取消收藏该歌单再导入');
+    }
+    // Partial batches can have equal or larger counts yet omit saved songs.
+    // Only replace a partial copy when every old provider/ID is retained.
+    if (existing?.tracks?.length && newPlaylist.importStatus.complete === false) {
+      const identity = track => track.ref?.providerId && track.ref?.id != null
+        ? JSON.stringify([track.ref.providerId, String(track.ref.id)]) : null;
+      const incomingIds = new Set(tracks.map(identity).filter(Boolean));
+      const preservesExisting = existing.tracks.every(track => {
+        const id = identity(track);
+        return id !== null && incomingIds.has(id);
+      });
+      if (!preservesExisting) {
+        throw new Error(`本次获取 ${tracks.length} 首，但未包含原有全部曲目；已保留原有 ${existing.tracks.length} 首，请稍后重试`);
+      }
+    }
+    if (state.favoritePlaylists.some(isLegacyPreview) && !localStorage.getItem('jelly_fav_playlists_before_import_upgrade')) {
+      localStorage.setItem('jelly_fav_playlists_before_import_upgrade', JSON.stringify(state.favoritePlaylists));
+    }
+    const updated = [newPlaylist, ...state.favoritePlaylists.filter(pl => !matches(pl))];
+    localStorage.setItem('jelly_fav_playlists', JSON.stringify(updated));
+    state.favoritePlaylists = updated;
 
     renderLibrary();
     return newPlaylist;
   }
 
+  let playlistImportInProgress = false;
+
+  function finishPlaylistImport(savedPl) {
+    if (savedPl.importStatus?.complete === false) {
+      showImportStatus('歌单尚未完整导入', savedPl.importStatus.warning, true);
+      toast(`已保存 ${savedPl.tracks.length} 首，歌单尚未完整导入`);
+      return;
+    }
+    toast(`成功导入歌单「${savedPl.title}」，共 ${savedPl.tracks.length} 首歌曲！`);
+    closeImportPlaylistModal();
+    openPlaylistDetail(savedPl.ref, {
+      title: savedPl.title,
+      author: savedPl.author,
+      artworkUrl: savedPl.artworkUrl,
+      trackCount: savedPl.tracks.length,
+      tracks: savedPl.tracks,
+      importStatus: savedPl.importStatus
+    });
+  }
+
   // Handle File Input (.cmpl, .cpl, .lxmc, .json)
   async function handlePlaylistFileInput(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || playlistImportInProgress) return;
+    playlistImportInProgress = true;
 
     const fileName = file.name;
     const lowerName = fileName.toLowerCase();
@@ -4711,23 +4940,14 @@
         result = await parsePlaylistContent(text, fileName);
       }
 
-      const savedPl = saveImportedPlaylist(result.name, result.tracks);
-      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
-      closeImportPlaylistModal();
-
-      // Open imported playlist immediately
-      openPlaylistDetail(savedPl.ref, {
-        title: savedPl.title,
-        author: savedPl.author,
-        artworkUrl: savedPl.artworkUrl,
-        trackCount: savedPl.tracks.length,
-        tracks: savedPl.tracks
-      });
+      const savedPl = saveImportedPlaylist(result.name, result.tracks, result);
+      finishPlaylistImport(savedPl);
     } catch (err) {
       console.error('File import error:', err);
       showImportStatus('导入失败', err.message || '文件读取或解析失败', true);
       toast('导入失败: ' + (err.message || '格式不支持'));
     } finally {
+      playlistImportInProgress = false;
       e.target.value = '';
     }
   }
@@ -4763,6 +4983,8 @@
 
   // Handle Smart One-Click Clipboard Import
   async function handleClipboardImport() {
+    if (playlistImportInProgress) return;
+    playlistImportInProgress = true;
     showImportStatus('正在读取剪贴板...', '请稍候');
     try {
       const clipText = await getSystemClipboardText();
@@ -4783,18 +5005,8 @@
       const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
       showImportStatus('正在解析剪贴板内容...', '正在分析链接与歌曲数据');
       const result = await parsePlaylistContent(clipText.trim(), customName);
-      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
-
-      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
-      closeImportPlaylistModal();
-
-      openPlaylistDetail(savedPl.ref, {
-        title: savedPl.title,
-        author: savedPl.author,
-        artworkUrl: savedPl.artworkUrl,
-        trackCount: savedPl.tracks.length,
-        tracks: savedPl.tracks
-      });
+      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks, result);
+      finishPlaylistImport(savedPl);
     } catch (err) {
       console.error('Clipboard import error:', err);
       showImportStatus('导入失败', err.message || '剪切板内容解析失败', true);
@@ -4802,38 +5014,34 @@
       if (el.textareaImportContent) {
         el.textareaImportContent.focus();
       }
+    } finally {
+      playlistImportInProgress = false;
     }
   }
 
   // Handle Textarea Text Import
   async function handleTextImport() {
+    if (playlistImportInProgress) return;
     const content = el.textareaImportContent ? el.textareaImportContent.value.trim() : '';
     if (!content) {
       toast('请先在输入框中粘贴歌单数据、链接或歌曲清单');
       return;
     }
 
+    playlistImportInProgress = true;
     const customName = el.inputImportPlaylistName ? el.inputImportPlaylistName.value.trim() : '';
     showImportStatus('正在解析...', '正在处理输入的内容');
 
     try {
       const result = await parsePlaylistContent(content, customName);
-      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks);
-
-      toast(`成功导入歌单「${savedPl.title}」，共 ${result.tracks.length} 首歌曲！`);
-      closeImportPlaylistModal();
-
-      openPlaylistDetail(savedPl.ref, {
-        title: savedPl.title,
-        author: savedPl.author,
-        artworkUrl: savedPl.artworkUrl,
-        trackCount: savedPl.tracks.length,
-        tracks: savedPl.tracks
-      });
+      const savedPl = saveImportedPlaylist(customName || result.name, result.tracks, result);
+      finishPlaylistImport(savedPl);
     } catch (err) {
       console.error('Text import error:', err);
       showImportStatus('导入失败', err.message || '内容解析失败', true);
       toast('导入失败: ' + (err.message || '格式不匹配'));
+    } finally {
+      playlistImportInProgress = false;
     }
   }
 

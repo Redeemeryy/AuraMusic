@@ -7,7 +7,11 @@
     "test:ui": "node tests/ui.cjs",
     "test:discover": "node tests/discover.cjs",
     "test:motion": "node tests/motion.cjs",
-    "test:queue": "node tests/queue.cjs"
+    "test:queue": "node tests/queue.cjs",
+    "test:glass": "node tests/song-glass.cjs",
+    "test:search-player": "node tests/search-quality-backdrop.cjs",
+    "test:playlist-live": "node tests/playlist-live.cjs",
+    "test:playlist-edit": "node --test tests/playlist-edit.cjs"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17",

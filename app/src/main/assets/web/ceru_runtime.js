@@ -257,8 +257,10 @@ if (!Uint8Array.prototype.originalToString) {
         const pl = detailData.playlist;
         if (!pl) return null;
 
-        const trackIds = (pl.trackIds || []).map(t => ({ id: t.id }));
-        let songs = [];
+        const trackIds = [...new Set((pl.trackIds || []).map(t => t.id).filter(id => id != null))].map(id => ({ id }));
+        // The detail response may contain only a preview of tracks. Keep its
+        // metadata while resolving the complete ID list in bounded batches.
+        const songsById = new Map((pl.tracks || []).map(song => [String(song.id), song]));
         if (trackIds.length > 0) {
           const chunkSize = 400;
           for (let i = 0; i < trackIds.length; i += chunkSize) {
@@ -276,21 +278,22 @@ if (!Uint8Array.prototype.originalToString) {
               });
               const sData = typeof songsRes.body === 'object' ? songsRes.body : JSON.parse(songsRes.body || '{}');
               if (sData && Array.isArray(sData.songs)) {
-                songs.push(...sData.songs);
+                sData.songs.forEach(song => songsById.set(String(song.id), song));
               }
             } catch (err) {
               console.warn('[CeruRuntime] NetEase batch song detail error:', err);
             }
           }
         }
-        if (songs.length === 0 && Array.isArray(pl.tracks) && pl.tracks.length > 0) {
-          songs = pl.tracks;
-        }
+        // Song-detail response order is not a playlist-order guarantee.
+        const songs = trackIds.length > 0
+          ? trackIds.map(track => songsById.get(String(track.id))).filter(Boolean)
+          : [...songsById.values()];
 
         const items = songs.map(s => {
           const singers = (s.ar || s.artists || []).map(a => a.name).join(' / ') || '未知歌手';
           const album = s.al?.name || s.album?.name || '';
-          const pic = s.al?.picUrl || s.album?.picUrl || pl.coverImgUrl || '';
+          const pic = s.al?.picUrl || s.album?.picUrl || '';
           const durMs = s.dt || s.duration || 0;
           const sId = String(s.id);
           return {
@@ -331,13 +334,17 @@ if (!Uint8Array.prototype.originalToString) {
           };
         });
 
+        const total = Math.max(Number(pl.trackCount) || 0, trackIds.length, items.length);
+        const complete = (Number.isFinite(pl.trackCount) || trackIds.length > 0) && items.length === total;
         return {
           id: String(pl.id || id),
           title: pl.name || `网易云歌单 (${id})`,
           author: pl.creator?.nickname || '网易云音乐',
           cover: pl.coverImgUrl || '',
           artworkUrl: pl.coverImgUrl || '',
-          total: items.length,
+          total,
+          complete,
+          warning: complete ? '' : `已获取 ${items.length} / ${total} 首；部分曲目未能读取，请稍后重新导入，或使用平台导出的歌单文件`,
           items: items
         };
       } catch (err) {
@@ -1033,16 +1040,26 @@ if (!Uint8Array.prototype.originalToString) {
     },
 
     async getPlaylistDetail(id, source = 'tx') {
+      // Plugin playlist actions commonly return a first page. NetEase's
+      // canonical ID list must be resolved before accepting that preview.
+      if (source === 'wy') {
+        const full = await defaultPublicPlaylistDetail(id, source);
+        if (full?.items?.length > 0) return full;
+      }
       const action = registeredActions.get('playlist.detail');
       if (action) {
         try {
           const res = await action({ source, id }, this.createOp());
-          if (res && res.items && res.items.length > 0) return res;
+          if (res && res.items && res.items.length > 0) {
+            if (source !== 'wy') return res;
+            const total = Math.max(Number(res.total || res.trackCount) || 0, res.items.length);
+            return { ...res, total, complete: false, warning: `已获取 ${res.items.length} 首；无法核实网易云歌单完整性，请稍后重新导入，或使用平台导出的歌单文件` };
+          }
         } catch (e) {
           console.warn('[CeruRuntime] action playlist.detail error, trying fallback:', e);
         }
       }
-      return await defaultPublicPlaylistDetail(id, source);
+      return source === 'wy' ? null : await defaultPublicPlaylistDetail(id, source);
     },
 
     async getComments(trackRef, page = 1, limit = 20) {

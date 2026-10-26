@@ -1,0 +1,21 @@
+/* Local playlist editing follows the existing glass surface and colors. */
+.playlist-edit-entry { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; flex-shrink: 0; }
+.playlist-edit-entry p { margin: 0; font-size: 11px; color: var(--color-on-surface-variant, #746778); }
+.playlist-edit-button { min-height: 44px; border-radius: 22px; padding: 10px 18px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.playlist-edit-button .material-symbols-outlined { font-size: 18px; }
+.playlist-edit-button:disabled { opacity: .45; cursor: default; }
+.playlist-edit-toolbar { flex-shrink: 0; width: min(100%, 448px); align-self: center; padding: 10px 16px max(12px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; z-index: 2; }
+.playlist-edit-toolbar[hidden] { display: none; }
+.playlist-edit-toolbar p { margin: 0 0 8px; font-size: 12px; text-align: center; overflow-wrap: anywhere; }
+.playlist-edit-toolbar-actions { display: flex; gap: 10px; }
+.playlist-edit-toolbar-actions button { flex: 1; min-width: 0; }
+.playlist-remove-button { background: #a5385e; color: white; }
+.playlist-select-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; min-height: 64px; cursor: pointer; }
+.playlist-select-row input { width: 22px; height: 22px; flex-shrink: 0; accent-color: #735382; }
+.playlist-select-row:has(input:checked) { outline: 2px solid #735382; outline-offset: -2px; }
+.playlist-select-row span { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+#playlistDetailOverlay.playlist-editing .playlist-edit-entry,
+#playlistDetailOverlay.playlist-editing #playlistDetailActions { display: none !important; }
+#playlistDetailOverlay.playlist-editing #plDetailTracksList { padding-bottom: 16px; }
+/* The edit actions occupy the mini-player's bottom slot while selecting songs. */
+body:has(#playlistDetailOverlay.playlist-editing:not(.translate-y-full)) #miniPlayer { display: none; }

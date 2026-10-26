@@ -147,8 +147,10 @@ class MusicService : MediaBrowserServiceCompat() {
 
     override fun onBind(intent: Intent?): IBinder? {
         val action = intent?.action
-        return if (MediaBrowserServiceCompat.SERVICE_INTERFACE == action ||
-            "com.vivo.musicwidgetmix.support.service" == action) {
+        return if ("com.vivo.musicwidgetmix.support.service" == action) {
+            // The framework browser service only returns its Binder for the standard action.
+            super.onBind(Intent(intent).setAction(MediaBrowserServiceCompat.SERVICE_INTERFACE))
+        } else if (MediaBrowserServiceCompat.SERVICE_INTERFACE == action) {
             super.onBind(intent)
         } else {
             binder
@@ -766,7 +768,7 @@ class MusicService : MediaBrowserServiceCompat() {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(subtitle)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification_music)
             .setContentIntent(contentIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)

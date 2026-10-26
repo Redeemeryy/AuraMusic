@@ -1,0 +1,40 @@
+/* Clear control material: the artwork supplies color, not an opaque white fill. */
+#fullPlayerOverlay { background: #e8edf2; }
+#fullPlayerOverlay::before {
+  inset: -8%; opacity: .48;
+  filter: blur(30px) saturate(130%) brightness(1.12);
+}
+#fullPlayerOverlay #playerBottomControls {
+  background: transparent !important; border: 0 !important;
+  box-shadow: none !important; backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill) {
+  position: relative; isolation: isolate;
+  background: linear-gradient(145deg,#ffffff12,#ffffff03 45%,#ffffff0b) !important;
+  border: 1px solid #ffffff12 !important;
+  box-shadow: 0 3px 8px #2433480a, inset 0 -1px 2px #2030480b !important;
+  backdrop-filter: blur(5px) saturate(155%) contrast(1.04);
+  -webkit-backdrop-filter: blur(5px) saturate(155%) contrast(1.04);
+}
+/* An interrupted reflective rim instead of a continuous white outline. */
+#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill)::before {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit;
+  padding: 1px; pointer-events: none;
+  background: linear-gradient(125deg,#ffffff88 0%,#ffffff14 24%,transparent 43%,#25344b10 64%,#ffffff58 89%,transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill)::after {
+  content: ''; position: absolute; inset: 1px; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(ellipse at var(--press-x,25%) var(--press-y,0%),#ffffff40,transparent 66%);
+  opacity: .24; transition: opacity 280ms ease;
+}
+#fullPlayerOverlay .aura-pressed::after { opacity: .85; }
+#fullQualityPill { min-height: 36px; }
+.reduce-transparency #fullPlayerOverlay::before { opacity: .12; }
+.reduce-transparency #fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill) {
+  background: #f4f7fb !important; backdrop-filter: none; -webkit-backdrop-filter: none;
+}

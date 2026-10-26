@@ -28,6 +28,9 @@
     if (!element || element.disabled || element.getAttribute('aria-disabled') === 'true') return;
     end(true);
     press = { element, x: e.clientX, y: e.clientY, id: e.pointerId };
+    const rect = element.getBoundingClientRect();
+    element.style.setProperty('--press-x', ((e.clientX - rect.left) / rect.width * 100) + '%');
+    element.style.setProperty('--press-y', ((e.clientY - rect.top) / rect.height * 100) + '%');
     element.classList.add('aura-pressed');
     animate(element, [{ scale: element.matches('[role="button"]') ? '.975' : '.90' }], 95, 'cubic-bezier(.2,.8,.2,1)', true);
   }, { passive: true, capture: true });

@@ -11,6 +11,10 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="liquid-glass.css">
   <link rel="stylesheet" href="discover.css">
+  <link rel="stylesheet" href="player-glass.css">
+  <link rel="stylesheet" href="song-glass.css">
+  <link rel="stylesheet" href="search-quality.css">
+  <link rel="stylesheet" href="playlist-edit.css">
   <script src="preferences.js"></script>
 </head>
 <body class="bg-[#fbf9fc] text-[#1b1b1e] min-h-screen flex flex-col relative overflow-hidden select-none">
@@ -81,13 +85,13 @@
 
     <!-- View 2: 搜索 (Search) -->
     <section id="view-search" class="view-container px-4">
-      <div class="page-heading"><p>找到你想听的声音</p><h1>搜索</h1></div>
-      <div class="max-w-md mx-auto flex flex-col gap-3.5">
+      <div class="page-heading"><p>你的下一首，藏在这里</p><h1>搜索音乐</h1></div>
+      <div class="max-w-md mx-auto flex flex-col gap-3.5 search-layout">
         <!-- Search Input Bar -->
-        <div class="jelly-glass rounded-2xl p-2 flex items-center gap-2 shadow-sm">
+        <div class="search-field jelly-glass rounded-2xl p-2 flex items-center gap-2 shadow-sm">
           <span class="material-symbols-outlined text-outline text-[20px] ml-2 flex-shrink-0">search</span>
-          <input id="searchInput" type="text" placeholder="搜索歌曲、歌手或歌单..." class="flex-1 min-w-0 bg-transparent border-0 outline-none text-[14px] text-on-surface placeholder:text-outline py-1.5" />
-          <button id="btnClearSearch" class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-outline hover:text-on-surface hidden">
+          <input id="searchInput" type="search" enterkeyhint="search" aria-label="搜索歌曲、歌手或歌单" autocomplete="off" placeholder="歌曲、歌手或歌单" class="flex-1 min-w-0 bg-transparent border-0 outline-none text-[14px] text-on-surface placeholder:text-outline py-1.5" />
+          <button id="btnClearSearch" aria-label="清空搜索" class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-outline hover:text-on-surface hidden">
             <span class="material-symbols-outlined text-[16px]">close</span>
           </button>
           <button id="btnDoSearch" class="h-9 px-4 rounded-xl bg-primary text-white font-bold text-[13px] active-squish shadow-sm flex-shrink-0 whitespace-nowrap min-w-[58px] flex items-center justify-center">
@@ -96,20 +100,21 @@
         </div>
 
         <!-- Search Type Switcher Tabs (单曲 / 歌单) -->
-        <div class="flex items-center gap-4 px-1 border-b border-white/60 pb-1" id="searchTypeTabs">
-          <button data-type="song" class="search-type-tab text-[13px] font-bold text-primary active-squish flex items-center gap-1">
+        <div class="flex items-center gap-4 px-1 border-b border-white/60 pb-1" id="searchTypeTabs" role="group" aria-label="搜索类型">
+          <button data-type="song" aria-pressed="true" class="search-type-tab text-[13px] font-bold text-primary active-squish flex items-center gap-1">
             <span class="material-symbols-outlined text-[17px]">music_note</span>
             <span>单曲</span>
           </button>
-          <button data-type="playlist" class="search-type-tab text-[13px] font-semibold text-on-surface-variant hover:text-on-surface active-squish flex items-center gap-1">
+          <button data-type="playlist" aria-pressed="false" class="search-type-tab text-[13px] font-semibold text-on-surface-variant hover:text-on-surface active-squish flex items-center gap-1">
             <span class="material-symbols-outlined text-[17px]">queue_music</span>
             <span>歌单</span>
           </button>
         </div>
 
         <!-- Source Switcher Tabs -->
-        <div class="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar" id="sourceTabs">
-          <button data-source="mix" class="source-tab px-3.5 py-1.5 rounded-full text-[12px] font-bold bg-primary text-white shadow-sm whitespace-nowrap active-squish">聚合 (Mix)</button>
+        <div class="search-source-heading"><h2>搜索范围</h2><span>选择你常用的音乐平台</span></div>
+        <div class="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar" id="sourceTabs" role="group" aria-label="音乐平台">
+          <button data-source="mix" aria-pressed="true" class="source-tab px-3.5 py-1.5 rounded-full text-[12px] font-bold bg-primary text-white shadow-sm whitespace-nowrap active-squish">全部音源</button>
           <button data-source="tx" class="source-tab px-3.5 py-1.5 rounded-full text-[12px] font-semibold bg-white/70 text-on-surface-variant hover:text-on-surface whitespace-nowrap active-squish">QQ音乐</button>
           <button data-source="wy" class="source-tab px-3.5 py-1.5 rounded-full text-[12px] font-semibold bg-white/70 text-on-surface-variant hover:text-on-surface whitespace-nowrap active-squish">网易云</button>
           <button data-source="kg" class="source-tab px-3.5 py-1.5 rounded-full text-[12px] font-semibold bg-white/70 text-on-surface-variant hover:text-on-surface whitespace-nowrap active-squish">酷狗</button>
@@ -119,21 +124,21 @@
 
         <!-- Hot Search Tags -->
         <div id="hotSearchSection">
-          <div class="text-[12px] font-bold text-outline uppercase tracking-wider mb-2 px-1">热门搜索</div>
+          <div class="search-suggestions-heading"><h2>从这些开始</h2><span class="material-symbols-outlined" aria-hidden="true">north_east</span></div>
           <div id="hotSearchPills" class="flex flex-wrap gap-2">
             <!-- Dynamic hot tags -->
-            <span class="hot-tag px-3 py-1 rounded-full jelly-glass text-[12px] text-on-surface font-medium cursor-pointer active-squish">周杰伦</span>
-            <span class="hot-tag px-3 py-1 rounded-full jelly-glass text-[12px] text-on-surface font-medium cursor-pointer active-squish">晴天</span>
-            <span class="hot-tag px-3 py-1 rounded-full jelly-glass text-[12px] text-on-surface font-medium cursor-pointer active-squish">林俊杰</span>
-            <span class="hot-tag px-3 py-1 rounded-full jelly-glass text-[12px] text-on-surface font-medium cursor-pointer active-squish">Taylor Swift</span>
-            <span class="hot-tag px-3 py-1 rounded-full jelly-glass text-[12px] text-on-surface font-medium cursor-pointer active-squish">陈奕迅</span>
+            <button class="hot-tag">周杰伦</button>
+            <button class="hot-tag">晴天</button>
+            <button class="hot-tag">林俊杰</button>
+            <button class="hot-tag">Taylor Swift</button>
+            <button class="hot-tag">陈奕迅</button>
           </div>
         </div>
 
         <!-- Search Status / Spinner -->
         <div id="searchLoading" class="hidden flex flex-col items-center justify-center py-12 gap-3 text-primary">
           <div class="w-8 h-8 rounded-full border-3 border-primary border-t-transparent animate-spin"></div>
-          <span class="text-[13px] font-semibold text-on-surface-variant">正在多源引擎解析检索中...</span>
+          <span class="text-[13px] font-semibold text-on-surface-variant">正在寻找好音乐…</span>
         </div>
 
         <!-- Search Results List -->
@@ -548,7 +553,7 @@
         </div>
       </div>
       <!-- Actions Bar -->
-      <div class="flex items-center justify-between gap-2 px-1 overflow-x-auto no-scrollbar py-0.5 flex-nowrap pl-actions-container">
+      <div id="playlistDetailActions" class="flex items-center justify-between gap-2 px-1 overflow-x-auto no-scrollbar py-0.5 flex-nowrap pl-actions-container">
         <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           <button id="btnPlayAllPlaylist" class="h-9 px-3.5 rounded-full bg-primary text-white font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md active-squish whitespace-nowrap flex-shrink-0 select-none min-w-max">
             <span class="material-symbols-outlined text-[18px] flex-shrink-0">play_circle</span>
@@ -565,8 +570,21 @@
         </div>
       </div>
       <!-- Tracks List -->
+      <div class="playlist-edit-entry">
+        <button id="btnEditPlaylist" class="jelly-glass playlist-edit-button active-squish" disabled>
+          <span class="material-symbols-outlined" aria-hidden="true">edit</span>编辑歌曲
+        </button>
+        <p id="playlistEditHint">仅修改本机保存的歌单</p>
+      </div>
       <div id="plDetailTracksList" class="flex flex-col gap-2 pb-32">
         <!-- Dynamic playlist track items -->
+      </div>
+    </div>
+    <div id="playlistEditToolbar" class="playlist-edit-toolbar jelly-glass" hidden>
+      <p id="playlistEditStatus" role="status" aria-live="polite">请选择要移除的歌曲</p>
+      <div class="playlist-edit-toolbar-actions">
+        <button id="btnCancelPlaylistEdit" class="playlist-edit-button active-squish">取消</button>
+        <button id="btnRemovePlaylistTracks" class="playlist-edit-button playlist-remove-button active-squish" disabled>移除所选（0）</button>
       </div>
     </div>
   </div>
@@ -623,17 +641,17 @@
   </div>
 
   <!-- Modal 4: 音质切换抽屉 (Quality Picker Drawer) -->
-  <div id="qualityModalOverlay" class="fixed inset-0 z-[80] bg-black/40 backdrop-blur-xs flex flex-col justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div id="qualityModalContent" class="w-full max-w-md mx-auto jelly-glass-solid rounded-t-3xl p-5 flex flex-col gap-4 shadow-2xl border-t border-white/80 transition-transform duration-300 translate-y-full pb-safe">
+  <div id="qualityModalOverlay" aria-hidden="true" class="fixed inset-0 z-[80] bg-black/40 backdrop-blur-xs flex flex-col justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div id="qualityModalContent" role="dialog" aria-modal="true" aria-labelledby="qualityDialogTitle" tabindex="-1" class="w-full max-w-md mx-auto jelly-glass-solid rounded-t-3xl p-5 flex flex-col gap-4 shadow-2xl border-t border-white/80 transition-transform duration-300 translate-y-full pb-safe">
       <div class="flex items-center justify-between border-b border-black/5 pb-3">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-primary text-[22px]">graphic_eq</span>
           <div>
-            <h3 class="text-[16px] font-bold text-on-surface">选择播放音质</h3>
-            <p class="text-[11px] text-on-surface-variant">为当前曲目实时解析并切换高保真音质</p>
+            <h3 id="qualityDialogTitle" class="text-[16px] font-bold text-on-surface">播放音质</h3>
+            <p class="text-[11px] text-on-surface-variant">按音源提供的可用音质播放</p>
           </div>
         </div>
-        <button id="btnCloseQualityModal" class="w-8 h-8 rounded-full jelly-glass flex items-center justify-center text-outline hover:text-on-surface active-squish">
+        <button id="btnCloseQualityModal" aria-label="关闭音质选择" class="w-8 h-8 rounded-full jelly-glass flex items-center justify-center text-outline hover:text-on-surface active-squish">
           <span class="material-symbols-outlined text-[18px]">close</span>
         </button>
       </div>
@@ -644,8 +662,8 @@
           <div class="flex items-center gap-3">
             <span class="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold text-[12px] flex items-center justify-center">128K</span>
             <div>
-              <div class="text-[14px] font-bold text-on-surface">标准音质 (128Kbps)</div>
-              <div class="text-[11px] text-on-surface-variant">节省流量，极速加载</div>
+              <div class="text-[14px] font-bold text-on-surface">标准</div>
+              <div class="text-[11px] text-on-surface-variant">128 kbps · 节省流量</div>
             </div>
           </div>
           <span class="material-symbols-outlined text-[20px] text-primary hidden quality-check-icon">check_circle</span>
@@ -654,8 +672,8 @@
           <div class="flex items-center gap-3">
             <span class="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold text-[12px] flex items-center justify-center">320K</span>
             <div>
-              <div class="text-[14px] font-bold text-on-surface">高品质 (320Kbps MP3)</div>
-              <div class="text-[11px] text-on-surface-variant">声音细腻，细节清晰</div>
+              <div class="text-[14px] font-bold text-on-surface">高品质</div>
+              <div class="text-[11px] text-on-surface-variant">320 kbps · 日常聆听</div>
             </div>
           </div>
           <span class="material-symbols-outlined text-[20px] text-primary hidden quality-check-icon">check_circle</span>
@@ -664,8 +682,8 @@
           <div class="flex items-center gap-3">
             <span class="w-9 h-9 rounded-xl bg-secondary-container/40 text-secondary font-bold text-[12px] flex items-center justify-center">FLAC</span>
             <div>
-              <div class="text-[14px] font-bold text-on-surface">无损音质 (FLAC 16Bit)</div>
-              <div class="text-[11px] text-on-surface-variant">CD级无损音频，还原录音现场</div>
+              <div class="text-[14px] font-bold text-on-surface">无损</div>
+              <div class="text-[11px] text-on-surface-variant">FLAC · 保留更多细节</div>
             </div>
           </div>
           <span class="material-symbols-outlined text-[20px] text-primary hidden quality-check-icon">check_circle</span>
@@ -674,8 +692,8 @@
           <div class="flex items-center gap-3">
             <span class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 font-bold text-[12px] flex items-center justify-center">Hi-Res</span>
             <div>
-              <div class="text-[14px] font-bold text-on-surface">母带音质 (Hi-Res 24Bit/96kHz)</div>
-              <div class="text-[11px] text-on-surface-variant">录音室母带标准，极致声场</div>
+              <div class="text-[14px] font-bold text-on-surface">Hi-Res</div>
+              <div class="text-[11px] text-on-surface-variant">高解析度 · 以音源支持为准</div>
             </div>
           </div>
           <span class="material-symbols-outlined text-[20px] text-primary hidden quality-check-icon">check_circle</span>
@@ -1056,7 +1074,9 @@
   </dialog>
   <script src="vendor.js"></script>
   <script src="ceru_runtime.js"></script>
+  <script src="player-backdrop.js"></script>
   <script src="app.js"></script>
   <script src="interaction-motion.js"></script>
+  <script src="song-glass.js"></script>
 </body>
 </html>
