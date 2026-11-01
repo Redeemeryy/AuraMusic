@@ -948,6 +948,20 @@
     ++lyricRequestId;
     state.lyrics = [];
     state.currentLyricIndex = -1;
+    state.currentTime = 0;
+    state.duration = track.metadata?.durationMs ? track.metadata.durationMs / 1000 : 0;
+    state.isSeeking = false;
+    isSeekingProgress = false;
+    isManualUserScrollingLyrics = false;
+    lyricsTouchActive = false;
+    state.isUserScrollingLyrics = false;
+    clearTimeout(lyricsScrollTimeout);
+    hideLyricsTimelineGuide();
+    if (el.currentTime) el.currentTime.textContent = '00:00';
+    if (el.totalDuration) el.totalDuration.textContent = formatTime(state.duration);
+    if (el.progressBar) el.progressBar.style.width = '0%';
+    if (el.progressThumb) el.progressThumb.style.left = '0%';
+    if (el.miniProgressBar) el.miniProgressBar.style.width = '0%';
     if (queue) {
       state.queue = queue;
       state.queueIndex = queue.findIndex(t => t.ref?.id === track.ref?.id);
@@ -2426,6 +2440,11 @@
     el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-on-surface-variant/60 font-medium my-auto">正在加载同步歌词...</div>';
     state.lyrics = [];
     state.currentLyricIndex = -1;
+    isManualUserScrollingLyrics = false;
+    lyricsTouchActive = false;
+    state.isUserScrollingLyrics = false;
+    clearTimeout(lyricsScrollTimeout);
+    hideLyricsTimelineGuide();
 
     try {
       let res = await window.MusicAPI.getLyrics(track.ref);
@@ -2622,7 +2641,7 @@
   }
 
   function scheduleLyricsScrollReset() {
-    if (lyricsScrollTimeout) clearTimeout(lyricsScrollTimeout);
+    clearTimeout(lyricsScrollTimeout);
     lyricsScrollTimeout = setTimeout(() => {
       if (lyricsTouchActive) {
         scheduleLyricsScrollReset();
@@ -2637,7 +2656,7 @@
         if (activeNode) {
           programmaticScrollLock = true;
           activeNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => { programmaticScrollLock = false; }, 500);
+          setTimeout(() => { programmaticScrollLock = false; }, 800);
         }
       }
     }, 2000);
@@ -2655,14 +2674,18 @@
       handleLyricsUserScroll();
     }, { passive: true });
 
-    el.lyricsScrollContainer.addEventListener('touchend', () => {
-      lyricsTouchActive = false;
-      scheduleLyricsScrollReset();
+    window.addEventListener('touchend', () => {
+      if (lyricsTouchActive) {
+        lyricsTouchActive = false;
+        scheduleLyricsScrollReset();
+      }
     }, { passive: true });
 
-    el.lyricsScrollContainer.addEventListener('touchcancel', () => {
-      lyricsTouchActive = false;
-      scheduleLyricsScrollReset();
+    window.addEventListener('touchcancel', () => {
+      if (lyricsTouchActive) {
+        lyricsTouchActive = false;
+        scheduleLyricsScrollReset();
+      }
     }, { passive: true });
 
     el.lyricsScrollContainer.addEventListener('mousedown', () => {
@@ -3658,10 +3681,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.1.6';
+        return info.versionName || '1.3.1';
       }
     } catch (e) {}
-    return '1.1.6';
+    return '1.3.1';
   }
 
   function showAppUpdateDialog(release, currentVer) {

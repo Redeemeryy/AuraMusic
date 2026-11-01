@@ -602,6 +602,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::webView.isInitialized) {
+            webView.onResume()
+        }
+        startProgressPolling()
         if (::updater.isInitialized) updater.onResume()
         musicService?.let { service ->
             val playing = service.isPlaying
@@ -619,7 +623,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         stopProgressPolling()
-        if (::webView.isInitialized) {
+        if (::webView.isInitialized && musicService?.isPlaying != true) {
             webView.onPause()
         }
         super.onStop()

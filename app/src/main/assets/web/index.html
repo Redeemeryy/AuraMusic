@@ -21,15 +21,15 @@
   <script src="update-bootstrap.js"></script>
   <script src="preferences.js"></script>
 </head>
-<body class="bg-[#fbf9fc] text-[#1b1b1e] min-h-screen flex flex-col relative overflow-hidden select-none">
+<body class="bg-transparent text-[#1b1b1e] min-h-screen flex flex-col relative overflow-hidden select-none">
 
   <!-- Top Floating Jelly Toast Capsule (灵动果冻胶囊提示) -->
   <div id="jellyToastContainer" class="fixed top-2 inset-x-0 z-[100] flex flex-col items-center pointer-events-none px-4 pt-safe gap-2"></div>
 
   <!-- Ambient Refraction Bloom Background Underlays -->
-  <div class="pointer-events-none fixed -top-16 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-gradient-to-tr from-cyan-200/40 via-blue-200/40 to-purple-200/30 blur-3xl opacity-80 -z-10"></div>
-  <div class="pointer-events-none fixed top-[40%] -right-24 w-80 h-80 rounded-full bg-gradient-to-bl from-teal-200/30 via-indigo-100/40 to-pink-200/30 blur-3xl opacity-70 -z-10"></div>
-  <div class="pointer-events-none fixed -bottom-16 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-sky-200/40 via-violet-200/30 to-emerald-200/30 blur-3xl opacity-60 -z-10"></div>
+  <div class="ambient-bloom pointer-events-none fixed -top-16 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-gradient-to-tr from-cyan-200/40 via-blue-200/40 to-purple-200/30 blur-3xl opacity-80 z-0"></div>
+  <div class="ambient-bloom pointer-events-none fixed top-[40%] -right-24 w-80 h-80 rounded-full bg-gradient-to-bl from-teal-200/30 via-indigo-100/40 to-pink-200/30 blur-3xl opacity-70 z-0"></div>
+  <div class="ambient-bloom pointer-events-none fixed -bottom-16 -left-20 w-80 h-80 rounded-full bg-gradient-to-tr from-sky-200/40 via-violet-200/30 to-emerald-200/30 blur-3xl opacity-60 z-0"></div>
 
   <!-- Top App Header -->
   <header class="fixed top-0 inset-x-0 z-30 pt-safe px-4 bg-white/60 backdrop-blur-md border-b border-white/60 shadow-xs">
