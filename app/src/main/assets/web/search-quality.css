@@ -60,9 +60,23 @@
 
 /* Unlike background-image, opacity interpolates and stays on the compositor. */
 #fullPlayerOverlay::before { display: none; }
-.player-artwork-backdrop { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: linear-gradient(135deg,#e5edf6,#ebdfeb); }
-.player-artwork-layer { position: absolute; inset: -10%; background-size: cover; background-position: center; filter: blur(32px) saturate(125%); opacity: 1; }
-.player-artwork-backdrop::after { content: ''; position: absolute; inset: 0; background: #eef2f7a8; }
+.player-artwork-backdrop {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  background: radial-gradient(ellipse at 18% 15%, rgba(139, 92, 246, 0.45) 0%, transparent 50%),
+              radial-gradient(ellipse at 85% 22%, rgba(56, 189, 248, 0.50) 0%, transparent 55%),
+              radial-gradient(ellipse at 50% 85%, rgba(244, 114, 182, 0.40) 0%, transparent 60%),
+              linear-gradient(180deg, #eef4fc 0%, #e2ecf9 100%);
+}
+.player-artwork-layer {
+  position: absolute; inset: -15%;
+  background-size: cover; background-position: center;
+  filter: blur(48px) saturate(160%) contrast(106%);
+  opacity: 1;
+}
+.player-artwork-backdrop::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.22) 0%, rgba(240, 245, 255, 0.48) 100%);
+}
 .reduce-transparency .player-artwork-backdrop { opacity: .18; }
 .reduce-transparency #qualityModalContent { background: #f4f7fb; backdrop-filter: none; }
 .reduce-transparency #qualityOptionsList .quality-picker-option { background: #fff; }

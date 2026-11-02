@@ -337,6 +337,49 @@ body, html {
   will-change: transform, opacity;
   animation: auraBreath 4.5s ease-in-out infinite;
 }
+/* Liquid Mercury Progress Bar (vivo / Apple 级水感流道滑轨) */
+#progressContainer > div:first-child {
+  height: 5px !important;
+  background: rgba(0, 30, 80, 0.08) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(255, 255, 255, 0.85) !important;
+  border-radius: 9999px !important;
+}
+#progressBar {
+  height: 100% !important;
+  background: linear-gradient(90deg, #0077ff 0%, #6366f1 50%, #a855f7 100%) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.5) !important;
+  border-radius: 9999px !important;
+}
+#progressThumb {
+  width: 16px !important;
+  height: 16px !important;
+  margin-left: -8px !important;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e0eaff 55%, #c7d8fe 100%) !important;
+  border: 2.5px solid #ffffff !important;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 1), 0 3px 10px rgba(0, 80, 200, 0.32), 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.2s cubic-bezier(0.18, 1.4, 0.4, 1), left 0.06s linear !important;
+}
+#progressThumb.scale-125 {
+  transform: scale(1.35) !important;
+  box-shadow: inset 0 1.5px 3px rgba(255, 255, 255, 1), 0 6px 18px rgba(0, 80, 200, 0.45) !important;
+}
+
+/* Vinyl Glass Stage Halo */
+#vinylStage .p-2\.5.jelly-glass {
+  background: radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 55%, rgba(225, 238, 255, 0.35) 100%) !important;
+  border: 2px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 
+    inset 0 3px 6px rgba(255, 255, 255, 1),
+    inset 0 -3px 6px rgba(0, 40, 100, 0.12),
+    0 24px 60px -12px rgba(18, 38, 78, 0.20),
+    0 8px 24px -4px rgba(18, 38, 78, 0.10) !important;
+  backdrop-filter: blur(36px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(220%) !important;
+}
+#vinylAura {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.42) 0%, rgba(168, 85, 247, 0.38) 45%, rgba(244, 114, 182, 0.25) 75%, transparent 100%) !important;
+  filter: blur(54px) !important;
+}
 
 /* Pause heavy player animations when the full player is closed to save battery & prevent heating */
 #fullPlayerOverlay.translate-y-full * {
