@@ -70,12 +70,15 @@
 .player-artwork-layer {
   position: absolute; inset: -15%;
   background-size: cover; background-position: center;
-  filter: blur(48px) saturate(160%) contrast(106%);
-  opacity: 1;
+  filter: blur(48px) saturate(180%) contrast(110%);
+  opacity: 0.72;
+  mix-blend-mode: multiply;
+  transform: scale(1.06);
 }
 .player-artwork-backdrop::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.22) 0%, rgba(240, 245, 255, 0.48) 100%);
+  background: radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.18) 0%, rgba(240, 245, 255, 0.35) 100%);
+  mix-blend-mode: overlay;
 }
 .reduce-transparency .player-artwork-backdrop { opacity: .18; }
 .reduce-transparency #qualityModalContent { background: #f4f7fb; backdrop-filter: none; }

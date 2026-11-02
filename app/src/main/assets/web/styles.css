@@ -365,7 +365,7 @@ body, html {
 }
 
 /* Vinyl Glass Stage Halo */
-#vinylStage .p-2\.5.jelly-glass {
+#vinylStage .jelly-glass {
   background: radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 55%, rgba(225, 238, 255, 0.35) 100%) !important;
   border: 2px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: 

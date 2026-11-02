@@ -79,7 +79,7 @@ main { min-height: 0; padding-top: 0 !important; }
 }
 #mainNavBar { padding: 0 16px calc(var(--bottom-inset) + 10px); }
 #mainNavBar .nav-inner-container { margin-bottom: 0; }
-.nav-glass-bar, #miniPlayerContent, #headerSourceBadge {
+.nav-glass-bar, #miniPlayerContent, #headerSourceBadge, #view-discover .discover-track-play, #playlistDetailOverlay .pl-actions-container button {
   background: radial-gradient(135% 100% at 20% 0%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.56) 55%, rgba(240, 246, 255, 0.35) 100%) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.9) !important;
   box-shadow: 

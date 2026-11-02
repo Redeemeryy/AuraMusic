@@ -1,8 +1,11 @@
 /* Low-contrast contour paper remains readable when GPU effects are unavailable. */
 .song-scene {
   isolation: isolate;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+html.reduce-transparency body .song-scene {
   background-color: #f1f4fa !important;
-  background-image: radial-gradient(ellipse at 95% 10%,#c3dce34a,transparent 65%),repeating-radial-gradient(ellipse at 120% -10%,transparent 0 38px,#8099b118 39px 40px,transparent 41px 65px) !important;
 }
 .song-glass-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
 html body :is(#dailyRecPreviewList,#discoverRankList,#searchResultsList,#librarySongList,#plDetailTracksList,#queueList) { gap: 9px !important; }
