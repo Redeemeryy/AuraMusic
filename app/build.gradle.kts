@@ -23,8 +23,8 @@ android {
         applicationId = "com.salt.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 15
-        versionName = "1.3.1"
+        versionCode = 16
+        versionName = "1.3.2"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

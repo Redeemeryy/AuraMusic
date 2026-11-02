@@ -3681,10 +3681,10 @@
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.3.1';
+        return info.versionName || '1.3.2';
       }
     } catch (e) {}
-    return '1.3.1';
+    return '1.3.2';
   }
 
   function showAppUpdateDialog(release, currentVer) {
