@@ -301,3 +301,69 @@ test('native synchronization during a pending song resolution cannot restore the
   });
   assert.equal(await page.locator('#miniTitle').textContent(), '歌曲2');
 }));
+
+test('switching to lyrics page on an unplayed restored song loads lyrics immediately without starting playback', () => fixture(async page => {
+  await page.evaluate(() => {
+    localStorage.setItem('jelly_current_track', JSON.stringify(JSON.parse(localStorage.getItem('jelly_favs'))[0]));
+  });
+  await page.reload();
+  await page.evaluate(() => {
+    window.MusicAPI = {
+      initialized: true,
+      resolve: async () => ({ url: 'https://audio.test/restored.mp3', actualQuality: '320k' }),
+      getLyrics: async () => ({ lyric: '[00:01.00]未播放也先加载出的歌词' }),
+    };
+    openFullPlayer();
+  });
+  await page.locator('#btnToggleLyrics').click();
+  await page.waitForSelector('#lyric-line-0');
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '未播放也先加载出的歌词');
+  assert.equal(await page.evaluate(() => nativeCalls.plays.length), 0, 'opening lyrics must not auto-start audio playback');
+
+  await page.locator('#btnPlayPause').click();
+  await page.waitForFunction(() => nativeCalls.plays.length === 1 && nativeCalls.timelines.length === 1);
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[0].lines), [
+    { time: 1, text: '未播放也先加载出的歌词' },
+  ]);
+}));
+
+test('lyrics still load and stay visible when stream resolution is slow or fails', () => fixture(async page => {
+  await page.evaluate(() => {
+    delayStreams = true;
+    MusicAPI.resolve = () => Promise.reject(new Error('stream unavailable'));
+  });
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await page.evaluate(() => {
+    openFullPlayer();
+    document.getElementById('btnToggleLyrics').click();
+  });
+  await reply(page, '1', '[00:02.00]音频失败时歌词仍可显示');
+  await page.waitForSelector('#lyric-line-0');
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '音频失败时歌词仍可显示');
+}));
+
+test('unplayed lyrics screen never stays stuck loading when no source is initialized and auto-loads once initialized', () => fixture(async page => {
+  await page.evaluate(() => {
+    localStorage.setItem('jelly_current_track', JSON.stringify(JSON.parse(localStorage.getItem('jelly_favs'))[0]));
+  });
+  await page.reload();
+  await page.evaluate(() => {
+    openFullPlayer();
+    document.getElementById('btnToggleLyrics').click();
+  });
+  await page.waitForFunction(() => !document.getElementById('lyricsScrollContainer').textContent.includes('正在加载'));
+  const idleText = await page.locator('#lyricsScrollContainer').textContent();
+  assert.match(idleText, /音源/);
+
+  await page.evaluate(async () => {
+    window.MusicAPI = {
+      initialized: true,
+      resolve: async () => ({ url: 'https://audio.test/after-source.mp3', actualQuality: '320k' }),
+      getLyrics: async () => ({ lyric: '[00:01.00]音源就绪后自动补全歌词' }),
+    };
+    await loadDiscoverContent();
+  });
+  await page.waitForSelector('#lyric-line-0');
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '音源就绪后自动补全歌词');
+}));

@@ -14,15 +14,18 @@
 .hero-artwork[hidden] { display: none; }
 .hero-shade { position: absolute; inset: 0; background: linear-gradient(180deg,#10182030,#10182028 20%,#101820b8 65%,#101820ed); z-index: -1; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 550; color: #fff; text-shadow: 0 1px 5px #0008; }
-.hero-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #ffffff1a; border: 1px solid #ffffff50; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); flex-shrink: 0; }
+.hero-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.22); border: 1px solid rgba(255, 255, 255, 0.56); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18), inset 0 1.5px 1px rgba(255, 255, 255, 0.72); backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.7)); -webkit-backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.7)); flex-shrink: 0; }
+.hero-icon.has-glass-lens { backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(4px) saturate(1.8)); -webkit-backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(4px) saturate(1.8)); }
 .hero-icon .material-symbols-outlined { font-size: 21px; }
 .hero-heading { display: block; text-align: left; width: 100%; margin-top: auto; padding-top: 40px; }
 #dailyRecBadgeText { display: block; font-size: 11px; font-weight: 500; letter-spacing: .10em; color: #ffffffbf; }
 #dailyRecTitle { font-size: 34px; font-weight: 720; line-height: 1.3; letter-spacing: -.035em; margin-top: 6px; }
 #dailyRecSubtitle { color: #ffffffe6; font-size: 12px; font-weight: 400; line-height: 1.6; margin-top: 6px; }
 .hero-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
-.hero-play { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; padding: 0 18px; border-radius: 24px; background: #ffffffd9; color: #1d2933; border: 1px solid #ffffffa8; box-shadow: inset 0 1px #fff; font-size: 13px; font-weight: 650; }
-.hero-more { display: inline-flex; gap: 6px; align-items: center; min-height: 46px; font-size: 12px; color: #ffffffe6; white-space: nowrap; }
+.hero-play { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; padding: 0 18px; border-radius: 999px; background: linear-gradient(155deg, rgba(255, 255, 255, 0.86) 0%, rgba(235, 244, 255, 0.72) 100%); color: #131f2e; border: 1px solid rgba(255, 255, 255, 0.92); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22), inset 0 1.5px 1.5px #fff; backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.65)); -webkit-backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.65)); font-size: 13px; font-weight: 650; }
+.hero-play.has-glass-lens { backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(4px) saturate(1.8)); -webkit-backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(4px) saturate(1.8)); }
+.hero-more { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); color: #fff; border: 1px solid rgba(255, 255, 255, 0.36); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.45); backdrop-filter: var(--glass-solid-filter, blur(12px) saturate(1.6)); -webkit-backdrop-filter: var(--glass-solid-filter, blur(12px) saturate(1.6)); font-size: 12px; font-weight: 550; white-space: nowrap; }
+.hero-more.has-glass-lens { backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(3px) saturate(1.75)); -webkit-backdrop-filter: var(--glass-solid-filter, var(--glass-lens) blur(3px) saturate(1.75)); }
 .hero-more .material-symbols-outlined { font-size: 18px; }
 .hero-play:active, .hero-icon:active { transform: scale(.96); }
 .hero-play, .hero-icon { transition: transform 160ms var(--ease-glass); }
@@ -71,10 +74,22 @@
     scroll-padding-inline-start: calc(2px + var(--artwork-bleed));
   }
 }
+@media (orientation: landscape) and (max-height: 460px) {
+  #view-discover .page-heading { margin-top: 0; margin-bottom: 6px; }
+  #view-discover .page-heading h1 { font-size: 22px; line-height: 1.12; }
+  #view-discover .discover-content > div { align-items: start; }
+  #view-discover #dailyRecCard { align-self: start; min-height: 158px; padding-block: 10px 12px; padding-inline-end: 16px; }
+  #view-discover .hero-eyebrow { margin-top: 0; font-size: 11px; }
+  #dailyRecTitle { font-size: 21px; margin-top: 2px; }
+  #dailyRecSubtitle { margin-top: 2px; font-size: 12px; }
+  .hero-heading { padding-top: 2px; }
+  .hero-actions { margin-top: 8px; }
+  .hero-play, .hero-more { min-height: 34px; }
+}
 @media (max-width: 359px) {
   #view-discover #dailyRecCard { padding: 18px; min-height: 292px; }
   #dailyRecTitle { font-size: 32px; }
   .hero-actions { gap: 8px; }
   .hero-play { padding-inline: 14px; }
 }
-.reduce-transparency .hero-icon, .reduce-transparency .hero-play { background: #fff; color: #243548; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.reduce-transparency .hero-icon, .reduce-transparency .hero-play, .reduce-transparency .hero-more { background: #fff; color: #243548; backdrop-filter: none; -webkit-backdrop-filter: none; }
