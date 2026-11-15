@@ -3794,13 +3794,14 @@
   }
 
   function getInstalledAppVersion() {
+    const fallbackVersion = '1.3.3';
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());
-        return info.versionName || '1.3.2';
+        return info.versionName || fallbackVersion;
       }
     } catch (e) {}
-    return '1.3.2';
+    return fallbackVersion;
   }
 
   function showAppUpdateDialog(release, currentVer) {

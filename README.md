@@ -20,9 +20,9 @@
 
 ## 🌟 核心特性 (Features)
 
-- 💎 **液态果冻玻璃美学 (Liquid Glass Aesthetic)**
-  - 深度融合 iOS 级弥散光斑、高斯模糊微折射特效与果冻按压缩放动效。
-  - 沉浸式 3D 拟真黑胶唱片旋转与流体律动背景，下滑手势丝滑收起播放详情页。
+- 💎 **液态玻璃界面 (Liquid Glass)**
+  - 悬浮导航与迷你播放器折射下方内容。切换菜单时，选中胶囊滑动并随方向拉伸。
+  - 播放详情按专辑封面切换背景。可以在设置里减少动效或降低透明度。
 
 - 🎧 **Hi-Res 母带与无损音质智能阶梯降级**
   - 支持 **Hi-Res 母带 (24Bit/96kHz+)**、**FLAC CD级无损**、**320K 超高品质** 以及 **128K 标准音质**。
@@ -71,7 +71,7 @@
 
 ### 本地界面开发（Liquid Glass 改版）
 
-当前正式版为 [v1.3.0](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.3.0)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。本次新增界面资源更新和 APK 差分更新，见[发布说明](docs/releases/v1.3.0.md)与[增量更新说明](docs/incremental-updates.md)。安装和数据迁移注意事项见 [v1.2.0 说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
+当前正式版为 [v1.3.3](https://github.com/Redeemeryy/AuraMusic/releases/tag/v1.3.3)，桌面名称为「灵音」，使用固定发布签名及历史包名 `com.salt.music`。改动见[发布说明](docs/releases/v1.3.3.md)，更新方式见[增量更新说明](docs/incremental-updates.md)。安装和数据迁移注意事项见 [v1.2.0 说明](docs/releases/v1.2.0.md)，密钥配置见[发布签名说明](docs/release-signing.md)。
 
 界面样式和图标已随 APK 打包，运行时不再依赖 Tailwind CDN 或 Google Fonts。
 修改 `assets/web` 中 HTML/JS 类名后，先运行 `npm ci`、`npm run build:web`，再构建 APK。
