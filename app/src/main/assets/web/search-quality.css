@@ -1,20 +1,20 @@
 /* Search has a clear hierarchy and every source stays visible at small widths. */
+#view-search { scroll-padding-top: calc(var(--top-inset) + 64px); }
 #view-search .search-layout { gap: 16px; }
 #view-search .page-heading { margin-bottom: 22px; }
 #view-search .search-field {
   min-height: 58px; padding: 7px; gap: 6px; border-radius: 30px;
-  background: linear-gradient(130deg,#ffffff7a,#ffffff24); border: 1px solid #ffffff4d;
-  backdrop-filter: blur(10px) saturate(150%); box-shadow: 0 5px 22px #2340610a;
+  background: #fff; border: 1px solid #e3e5eb;
   transition: box-shadow 200ms ease, background 200ms ease;
 }
-#view-search .search-field:focus-within { box-shadow: 0 0 0 2px #3576ae4d,0 6px 24px #2340610a; background: #ffffff80; }
+#view-search .search-field:focus-within { box-shadow: 0 0 0 2px #3576ae4d; }
 #searchInput, #searchInput:focus-visible { outline: none; box-shadow: none; font-size: 15px; height: 42px; padding: 0 2px; appearance: none; }
 #searchInput::-webkit-search-cancel-button { display: none; }
 #btnDoSearch { border-radius: 24px; min-width: 56px; height: 42px; padding: 0 13px; font-weight: 600; box-shadow: none; }
 #btnClearSearch { width: 26px; height: 32px; }
 #searchTypeTabs { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #ffffff35; border-radius: 25px; background: #7891ac0c; }
 #searchTypeTabs .search-type-tab { min-height: 42px; justify-content: center; border-radius: 22px; font-size: 14px; transition: background 240ms ease,box-shadow 240ms ease,color 200ms ease; }
-#searchTypeTabs [aria-pressed="true"] { background: linear-gradient(150deg,#ffffffc2,#ffffff50); box-shadow: 0 2px 8px #26374b0c; color: #005fbb; }
+#searchTypeTabs [aria-pressed="true"] { background: #fff; box-shadow: 0 1px 3px #26374b16; color: #005fbb; }
 .search-source-heading, .search-suggestions-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .search-source-heading { margin: 8px 2px -7px; }
 .search-source-heading h2 { font-size: 13px; font-weight: 600; color: #495464; }
@@ -22,32 +22,29 @@
 #sourceTabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; overflow: visible; padding: 0; }
 #sourceTabs .source-tab { min-width: 0; min-height: 43px; padding: 8px 4px; border-radius: 16px; font-size: 13px; font-weight: 500; color: #4c5869; background: #ffffff35; border: 1px solid #ffffff36; box-shadow: none; transition: background 200ms ease,color 200ms ease; }
 #sourceTabs [aria-pressed="true"] { color: #075eac; background: #7db6e426; border-color: #467db832; font-weight: 650; }
-#hotSearchSection { margin-top: 8px; padding: 22px 20px; border: 1px solid #ffffff45; border-radius: 26px; background: linear-gradient(140deg,#ffffff55,#ffffff14); }
+#hotSearchSection { margin-top: 8px; padding: 16px 2px; }
 .search-suggestions-heading { margin-bottom: 18px; }
 .search-suggestions-heading h2 { font-size: 19px; font-weight: 650; letter-spacing: -.03em; }
 .search-suggestions-heading > span { font-size: 21px; color: #7a8b9c; }
 #hotSearchPills { gap: 10px 8px; }
-#hotSearchPills .hot-tag { min-height: 42px; padding: 8px 14px; border-radius: 22px; font-size: 13px; color: #445164; background: #ffffff73; border: 1px solid #ffffff55; }
+#hotSearchPills .hot-tag { min-height: 42px; padding: 8px 14px; border-radius: 22px; font-size: 13px; color: #445164; background: #fff; border: 1px solid #e3e5eb; }
 #view-search #searchResultsSection { margin-top: 4px; }
 #searchResultCount { font-size: 13px; }
 
-/* A floating clear sheet; tint is supplied by the artwork underneath it. */
-#qualityModalOverlay { background: #20304d1c; backdrop-filter: none; -webkit-backdrop-filter: none; padding: 12px 12px calc(var(--bottom-inset) + 12px); }
+#qualityModalOverlay { background: #20304d45; padding: 12px 12px calc(var(--bottom-inset) + 12px); }
 #qualityModalContent {
   border-radius: 30px; padding: 22px 16px 16px; gap: 18px;
   max-height: calc(100dvh - var(--top-inset) - var(--bottom-inset) - 30px);
-  background: linear-gradient(135deg,#ffffff8a,#ffffff40 50%,#ffffff63);
-  border: 1px solid #ffffff45; box-shadow: 0 22px 70px #172a4526,inset 0 1px 1px #ffffff75;
-  backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
-  transition: transform 360ms cubic-bezier(.2,.8,.2,1);
+  transform: scale(.92);
+  transition: transform 260ms var(--ease-glass);
 }
 #qualityModalContent > div:first-child { border: 0; padding: 0 2px; }
 #qualityDialogTitle { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
 #qualityModalContent h3 + p { font-size: 12px; margin-top: 4px; color: #566070; }
-#btnCloseQualityModal { width: 40px; height: 40px; flex-shrink: 0; border: 1px solid #ffffff36; box-shadow: none; background: #ffffff30; backdrop-filter: none; }
+#btnCloseQualityModal { width: 44px; height: 44px; flex-shrink: 0; background: #ffffff50; }
 #qualityOptionsList { gap: 9px; }
-#qualityOptionsList .quality-picker-option { min-height: 76px; border-radius: 21px; padding: 14px 12px; text-align: left; background: linear-gradient(120deg,#ffffff45,#ffffff0a); border: 1px solid #ffffff35; box-shadow: 0 2px 8px #20334f06; backdrop-filter: none; }
-#qualityOptionsList .quality-picker-option[aria-pressed="true"] { background: linear-gradient(120deg,#adcff145,#ffffff24); border-color: #4a88c54a; }
+#qualityOptionsList .quality-picker-option { min-height: 76px; border-radius: 21px; padding: 14px 12px; text-align: left; background: #ffffff7a; border: 1px solid #ffffff35; }
+#qualityOptionsList .quality-picker-option[aria-pressed="true"] { background: #dbe8f8; border-color: #4a88c54a; }
 #qualityOptionsList .quality-picker-option > div { min-width: 0; gap: 12px; }
 #qualityOptionsList .quality-picker-option > div > span { width: 44px; height: 44px; border-radius: 50%; background: #ffffff35; border: 1px solid #ffffff36; color: #426581; font-size: 11px; flex-shrink: 0; }
 #qualityOptionsList .quality-picker-option > div > div { min-width: 0; }
@@ -59,32 +56,24 @@
 .quality-avail-badge:empty { display: none; }
 
 /* Unlike background-image, opacity interpolates and stays on the compositor. */
-#fullPlayerOverlay::before { display: none; }
 .player-artwork-backdrop {
   position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
-  background: radial-gradient(ellipse at 18% 15%, rgba(139, 92, 246, 0.45) 0%, transparent 50%),
-              radial-gradient(ellipse at 85% 22%, rgba(56, 189, 248, 0.50) 0%, transparent 55%),
-              radial-gradient(ellipse at 50% 85%, rgba(244, 114, 182, 0.40) 0%, transparent 60%),
-              linear-gradient(180deg, #eef4fc 0%, #e2ecf9 100%);
+  background: #eceef3;
 }
 .player-artwork-layer {
   position: absolute; inset: -15%;
   background-size: cover; background-position: center;
-  filter: blur(48px) saturate(180%) contrast(110%);
-  opacity: 0.72;
-  mix-blend-mode: multiply;
+  filter: blur(42px) saturate(125%);
+  opacity: .72;
   transform: scale(1.06);
 }
 .player-artwork-backdrop::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.18) 0%, rgba(240, 245, 255, 0.35) 100%);
-  mix-blend-mode: overlay;
+  background: linear-gradient(#f4f5f98c, #f4f5f9ba 80%);
 }
 .reduce-transparency .player-artwork-backdrop { opacity: .18; }
-.reduce-transparency #qualityModalContent { background: #f4f7fb; backdrop-filter: none; }
 .reduce-transparency #qualityOptionsList .quality-picker-option { background: #fff; }
 .reduce-transparency #qualityOptionsList .quality-picker-option[aria-pressed="true"] { background: #e5edf6; }
-.reduce-transparency #view-search :is(.search-field,#searchTypeTabs,#hotSearchSection,.source-tab,.hot-tag) { background: #f8fafc; }
 @media (min-width:700px) { #sourceTabs { grid-template-columns: repeat(6,minmax(0,1fr)); } }
 @media (max-height:540px) and (orientation:landscape) {
   #qualityModalContent { max-width: 600px !important; padding: 16px; }
@@ -92,7 +81,7 @@
   #qualityOptionsList .quality-picker-option { min-height: 70px; }
 }
 @media (prefers-reduced-transparency:reduce) {
-  #qualityModalContent { background: #f4f7fb; backdrop-filter: none; }
   #qualityOptionsList .quality-picker-option { background: #fff; }
+  #qualityOptionsList .quality-picker-option[aria-pressed="true"] { background: #e5edf6; }
   .player-artwork-backdrop { opacity: .18; }
 }

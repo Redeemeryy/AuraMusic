@@ -1,55 +1,40 @@
-/* Clear control material: the artwork supplies color, not an opaque white fill. */
 #fullPlayerOverlay {
-  background: radial-gradient(ellipse at 18% 12%, rgba(139, 92, 246, 0.28) 0%, transparent 48%),
-              radial-gradient(ellipse at 85% 20%, rgba(59, 130, 246, 0.32) 0%, transparent 52%),
-              radial-gradient(ellipse at 50% 88%, rgba(236, 72, 153, 0.24) 0%, transparent 56%),
-              linear-gradient(180deg, #f0f4fa 0%, #e5eef9 100%) !important;
+  background: #eceef3;
 }
-#fullPlayerOverlay::before {
-  inset: -8%; opacity: .48;
-  filter: blur(30px) saturate(130%) brightness(1.12);
+
+#fullPlayerControlsRow {
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
 }
-@media (orientation: portrait) {
-  #fullPlayerOverlay #playerBottomControls {
-    background: transparent !important; border: 0 !important;
-    box-shadow: none !important; backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
+
+#fullPlayerControlsRow :is(#btnPrev, #btnNext),
+#fullPlayerActionRow > button {
+  background: #edf1f6b3;
+  border: 0;
+  color: var(--on-surface);
 }
-#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill) {
-  position: relative; isolation: isolate;
-  background: radial-gradient(135% 100% at 20% 0%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.52) 60%, rgba(235, 245, 255, 0.35) 100%) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.95), 0 8px 24px -4px rgba(20, 40, 80, 0.08), 0 2px 6px -1px rgba(20, 40, 80, 0.04) !important;
-  backdrop-filter: blur(28px) saturate(210%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(210%) !important;
-  color: #1b1b1e !important;
+
+#fullPlayerControlsRow :is(#btnPrev, #btnNext) {
+  background: transparent;
 }
-#fullPlayerOverlay #btnPlayPause {
-  position: relative; isolation: isolate;
-  background: linear-gradient(135deg, #0077ff 0%, #6366f1 50%, #8b5cf6 100%) !important;
-  border: 2px solid rgba(255, 255, 255, 0.8) !important;
-  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.85), inset 0 -2px 4px rgba(0, 0, 0, 0.2), 0 12px 32px -4px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(99, 102, 241, 0.35) !important;
-  color: #ffffff !important;
+
+#fullPlayerControlsRow #btnPlayPause {
+  background: #204b81;
+  color: #fff;
+  box-shadow: inset 0 1px 1px #ffffff60, 0 2px 6px #152d4a24;
 }
-/* An interrupted reflective rim instead of a continuous white outline. */
-#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill)::before {
-  content: ''; position: absolute; inset: -1px; border-radius: inherit;
-  padding: 1px; pointer-events: none;
-  background: linear-gradient(125deg,#ffffff88 0%,#ffffff14 24%,transparent 43%,#25344b10 64%,#ffffff58 89%,transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  mask-composite: exclude;
+
+#fullPlayerControlsRow button.aura-pressed:not(#btnPlayPause),
+#fullPlayerActionRow > button.aura-pressed {
+  background: #d4e1f2;
 }
-#fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill)::after {
-  content: ''; position: absolute; inset: 1px; border-radius: inherit; pointer-events: none;
-  background: radial-gradient(ellipse at var(--press-x,25%) var(--press-y,0%),#ffffff40,transparent 66%);
-  opacity: .24; transition: opacity 280ms ease;
-}
-#fullPlayerOverlay .aura-pressed::after { opacity: .85; }
-#fullQualityPill { min-height: 36px; }
-.reduce-transparency #fullPlayerOverlay::before { opacity: .12; }
-.reduce-transparency #fullPlayerOverlay :is(#fullPlayerHeader > button, #btnPlayPause, #btnPrev, #btnNext, #fullPlayerActionRow > button, #fullQualityPill) {
-  background: #f4f7fb !important; backdrop-filter: none; -webkit-backdrop-filter: none;
+
+#fullPlayerControlsRow #btnPlayPause.aura-pressed { background: #2b5b97; }
+#fullQualityPill { min-height: 42px; }
+
+@media (orientation: landscape) and (min-width: 700px) {
+  #fullPlayerControlsRow { justify-self: center; }
 }

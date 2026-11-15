@@ -80,6 +80,120 @@ test('full timed lyrics cross the native boundary once, including instrumental g
   assert.deepEqual(await page.evaluate(() => nativeCalls.legacy), [], 'page frames must not overwrite the native timer');
 }));
 
+test('timed lyric markup is cleaned in both the player and Android timeline', () => fixture(async page => {
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '[00:01.00]<00:01.000><b>唱词</b> <color=red><i>继续</i></color> &amp; A < B > C <3 <love>\n[00:03.0]<00:03.000>');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 1);
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '唱词 继续 & A < B > C <3 <love>');
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[0].lines), [
+    { time: 1, text: '唱词 继续 & A < B > C <3 <love>' },
+    { time: 3, text: '' },
+  ]);
+
+  await play(page, 1);
+  await page.waitForFunction(() => lyricReplies['2']);
+  await page.evaluate(() => lyricReplies['2']({ lines: [
+    { startTimeMs: 2000, endTimeMs: 4000, words: [{ text: '&lt;span&gt;下一句&lt;/span&gt;' }] },
+  ] }));
+  await page.waitForFunction(() => nativeCalls.timelines.length === 2);
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '下一句');
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[1].lines), [
+    { time: 2, endTime: 4, text: '下一句' },
+  ]);
+
+  await page.evaluate(() => { delete lyricReplies['1']; });
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '<QrcInfos><Lyric_1 LyricContent="[2500,500]&lt;font&gt;退回(2500,250)格式(2750,250)&lt;/font&gt;&#10;[3000,500]&lt;0,500,0&gt;第二行"/></QrcInfos>');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 3);
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[2].lines), [
+    { time: 2.5, endTime: 3, text: '退回格式' },
+    { time: 3, endTime: 3.5, text: '第二行' },
+  ]);
+}));
+
+test('a short valid lyric is kept without searching another provider', () => fixture(async page => {
+  await page.evaluate(() => {
+    window.fallbackSearches = 0;
+    MusicAPI.search = async () => { fallbackSearches++; return { items: [] }; };
+  });
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '[00:01]你');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 1);
+  assert.equal(await page.evaluate(() => fallbackSearches), 0);
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '你');
+}));
+
+test('an unrelated provider match does not supply lyrics for the current song', () => fixture(async page => {
+  await page.evaluate(() => {
+    MusicAPI.search = async () => ({ items: [{ title: '另一首歌', subtitle: '另一歌手', ref: { id: '7', providerId: 'kw' } }] });
+  });
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 1);
+  assert.equal(await page.evaluate(() => !!lyricReplies['7']), false);
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[0].lines), []);
+}));
+
+test('fallback lyrics require a matching artist when the current artist is known', () => fixture(async page => {
+  await page.evaluate(() => {
+    const originalLyrics = MusicAPI.getLyrics;
+    MusicAPI.getLyrics = ref => ref.id === '7'
+      ? Promise.resolve({ lyric: '[00:01.00]跨音源歌词' })
+      : originalLyrics(ref);
+    MusicAPI.search = async query => ({ items: [{
+      title: query.startsWith('歌曲1') ? '歌曲1' : '歌曲2',
+      subtitle: query.startsWith('歌曲1') ? '' : '歌手',
+      ref: { id: '7', providerId: 'kw' },
+    }] });
+  });
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 1);
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[0].lines), []);
+
+  await play(page, 1);
+  await page.waitForFunction(() => lyricReplies['2']);
+  await reply(page, '2', '');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 2);
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines[1].lines), [
+    { time: 1, text: '跨音源歌词' },
+  ]);
+}));
+
+test('restoring an older native timeline cleans persisted markup', () => fixture(async page => {
+  await page.evaluate(() => {
+    const track = {
+      title: '恢复的歌曲',
+      ref: { id: '7', providerId: 'wy' },
+      lyricTrackKey: 'legacy:7',
+      lyricsTimeline: [{ time: 1, text: '<00:01>旧歌词' }],
+    };
+    AndroidBridge.getPlaybackState = () => JSON.stringify({ track, isPlaying: false });
+    syncPlaybackFromNative();
+  });
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '旧歌词');
+  assert.deepEqual(await page.evaluate(() => nativeCalls.timelines), [
+    { key: 'legacy:7', lines: [{ time: 1, text: '旧歌词' }] },
+  ]);
+}));
+
+test('switching songs removes displayed lyrics before stream resolution', () => fixture(async page => {
+  await play(page, 0);
+  await page.waitForFunction(() => lyricReplies['1']);
+  await reply(page, '1', '[00:01.00]上一首歌词仍可显示');
+  await page.waitForFunction(() => nativeCalls.timelines.length === 1);
+  assert.equal(await page.locator('#lyric-line-0').textContent(), '上一首歌词仍可显示');
+
+  await page.evaluate(() => { delayStreams = true; });
+  await play(page, 1);
+  assert.equal(await page.locator('#lyric-line-0').count(), 0);
+}));
+
 test('late lyrics from a previous song cannot replace the current timeline', () => fixture(async page => {
   await play(page, 0);
   await page.waitForFunction(() => lyricReplies['1']);

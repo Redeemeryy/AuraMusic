@@ -13,7 +13,6 @@
   <link rel="stylesheet" href="liquid-glass.css">
   <link rel="stylesheet" href="discover.css">
   <link rel="stylesheet" href="player-glass.css">
-  <link rel="stylesheet" href="song-glass.css">
   <link rel="stylesheet" href="search-quality.css">
   <link rel="stylesheet" href="playlist-edit.css">
   <link rel="stylesheet" href="source-manager.css">
@@ -26,12 +25,6 @@
   <!-- Top Floating Jelly Toast Capsule (灵动果冻胶囊提示) -->
   <div id="jellyToastContainer" class="fixed top-2 inset-x-0 z-[100] flex flex-col items-center pointer-events-none px-4 pt-safe gap-2"></div>
 
-  <!-- Ambient Refraction Bloom Background Underlays (vivo橘子与Apple极光流体底色) -->
-  <div class="ambient-bloom pointer-events-none fixed -top-24 left-1/2 -translate-x-1/2 w-[440px] h-[440px] rounded-full bg-gradient-to-tr from-[#38bdf8] via-[#818cf8] to-[#c084fc] blur-[96px] opacity-65 z-0"></div>
-  <div class="ambient-bloom pointer-events-none fixed top-[35%] -right-20 w-[400px] h-[400px] rounded-full bg-gradient-to-bl from-[#f472b6] via-[#fb7185] to-[#38bdf8] blur-[96px] opacity-55 z-0"></div>
-  <div class="ambient-bloom pointer-events-none fixed -bottom-20 -left-20 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-[#2dd4bf] via-[#60a5fa] to-[#a855f7] blur-[96px] opacity-60 z-0"></div>
-  <div class="ambient-bloom pointer-events-none fixed top-[60%] right-1/4 w-[280px] h-[280px] rounded-full bg-gradient-to-r from-[#fb923c] to-[#f43f5e] blur-[80px] opacity-35 z-0"></div>
-
   <!-- Top App Header -->
   <header class="fixed top-0 inset-x-0 z-30 pt-safe px-4 bg-white/60 backdrop-blur-md border-b border-white/60 shadow-xs">
     <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto">
@@ -39,11 +32,10 @@
         <div class="w-8 h-8 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
           <img src="logo.png" class="w-full h-full object-cover" alt="AuraMusic" />
         </div>
-        <span class="font-extrabold text-[17px] text-on-surface">AuraMusic</span>
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">灵音</span>
+        <span class="font-extrabold text-[17px] text-on-surface">灵音</span>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0">
-        <button id="headerSourceBadge" class="jelly-glass px-2.5 py-1 rounded-full text-[11px] font-semibold text-primary flex items-center gap-1.5 active-squish max-w-[125px] shadow-2xs border border-primary/15" title="音源插件管理">
+        <button id="headerSourceBadge" class="glass-surface rounded-full text-[11px] font-semibold flex items-center gap-1.5 max-w-[125px]" title="音源插件管理">
           <span id="headerSourceDot" class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
           <span id="headerSourceText" class="truncate text-[11px] font-semibold text-on-surface">未配置音源</span>
         </button>
@@ -57,12 +49,12 @@
     <!-- Discover: content-first editorial layout -->
     <section id="view-discover" class="view-container active px-4">
       <div class="discover-content">
-        <div class="page-heading"><p>音乐，刚好合心意</p><h1>现在就听</h1></div>
+        <div class="page-heading"><h1>现在就听</h1></div>
         <div id="discoverNoSourceBanner" class="discover-welcome">
           <span class="material-symbols-outlined welcome-note" aria-hidden="true">graphic_eq</span>
-          <h2>好音乐，从这里开始</h2>
-          <p>添加一个音源，开启你的每日歌单。</p>
-          <button id="btnDiscoverOpenPlugin" class="discover-primary">添加音源<span aria-hidden="true">＋</span></button>
+          <h2>添加音乐音源</h2>
+          <p>添加音源后可搜索歌曲、查看歌单和播放音乐。</p>
+          <button id="btnDiscoverOpenPlugin" class="discover-primary">添加音源</button>
         </div>
         <div id="dailyRecSection" class="hidden">
           <article id="dailyRecCard" class="discover-hero">
@@ -93,16 +85,16 @@
       <div class="page-heading"><p>你的下一首，藏在这里</p><h1>搜索音乐</h1></div>
       <div class="max-w-md mx-auto flex flex-col gap-3.5 search-layout">
         <!-- Search Input Bar -->
-        <div class="search-field jelly-glass rounded-2xl p-2 flex items-center gap-2 shadow-sm">
+        <form id="searchForm" role="search" class="search-field jelly-glass rounded-2xl p-2 flex items-center gap-2 shadow-sm">
           <span class="material-symbols-outlined text-outline text-[20px] ml-2 flex-shrink-0">search</span>
           <input id="searchInput" type="search" enterkeyhint="search" aria-label="搜索歌曲、歌手或歌单" autocomplete="off" placeholder="歌曲、歌手或歌单" class="flex-1 min-w-0 bg-transparent border-0 outline-none text-[14px] text-on-surface placeholder:text-outline py-1.5" />
-          <button id="btnClearSearch" aria-label="清空搜索" class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-outline hover:text-on-surface hidden">
+          <button id="btnClearSearch" type="button" aria-label="清空搜索" class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-outline hover:text-on-surface hidden">
             <span class="material-symbols-outlined text-[16px]">close</span>
           </button>
-          <button id="btnDoSearch" class="h-9 px-4 rounded-xl bg-primary text-white font-bold text-[13px] active-squish shadow-sm flex-shrink-0 whitespace-nowrap min-w-[58px] flex items-center justify-center">
+          <button id="btnDoSearch" type="submit" class="h-9 px-4 rounded-xl bg-primary text-white font-bold text-[13px] active-squish shadow-sm flex-shrink-0 whitespace-nowrap min-w-[58px] flex items-center justify-center">
             搜索
           </button>
-        </div>
+        </form>
 
         <!-- Search Type Switcher Tabs (单曲 / 歌单) -->
         <div class="flex items-center gap-4 px-1 border-b border-white/60 pb-1" id="searchTypeTabs" role="group" aria-label="搜索类型">
@@ -165,7 +157,7 @@
 
     <!-- View 3: 资料库 (Library) -->
     <section id="view-library" class="view-container px-4">
-      <div class="page-heading"><p>收藏每一次心动</p><h1>资料库</h1></div>
+      <div class="page-heading"><h1>资料库</h1></div>
       <div class="max-w-md mx-auto flex flex-col gap-5">
         <!-- Library Top Header Card -->
         <div class="jelly-glass rounded-3xl p-5 shadow-sm">
@@ -224,7 +216,7 @@
 
     <!-- View 4: 设置 (Settings) -->
     <section id="view-settings" class="view-container px-4">
-      <div class="page-heading"><p>按你的习惯聆听</p><h1>设置</h1></div>
+      <div class="page-heading"><h1>设置</h1></div>
       <div class="max-w-md mx-auto flex flex-col gap-4">
         <!-- Sound Source Plugin Card -->
         <div id="settingsSourceCard" class="source-glass rounded-3xl p-5">
@@ -309,7 +301,7 @@
   <!-- Bottom Floating Mini Player -->
   <aside id="miniPlayer" class="fixed inset-x-0 z-[50] px-3 pointer-events-none transition-all duration-300">
     <div class="max-w-md mx-auto pointer-events-auto">
-      <div class="jelly-glass rounded-2xl p-2.5 px-3 flex flex-col gap-1.5 shadow-lg active-squish cursor-pointer" id="miniPlayerContent">
+      <div class="glass-surface rounded-full flex flex-col gap-1.5 cursor-pointer" id="miniPlayerContent" data-glass-lens>
         <div class="flex items-center justify-between gap-2.5">
           <!-- Album Art with glowing ring -->
           <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-primary to-secondary-container p-0.5 flex-shrink-0 flex items-center justify-center shadow-sm relative overflow-hidden">
@@ -342,7 +334,7 @@
           </div>
         </div>
         <!-- Live Mini Progress Line -->
-        <div class="w-full h-1 bg-black/5 rounded-full overflow-hidden">
+        <div class="h-1 bg-black/5 rounded-full overflow-hidden">
           <div id="miniProgressBar" class="h-full bg-gradient-to-r from-primary to-secondary-container rounded-full w-0 transition-all duration-300"></div>
         </div>
       </div>
@@ -352,15 +344,9 @@
   <!-- Bottom Floating Navigation Bar -->
   <nav id="mainNavBar" class="fixed bottom-0 inset-x-0 z-30 pb-safe px-4 pt-1 pointer-events-none">
     <div class="max-w-md mx-auto mb-2 pointer-events-auto nav-inner-container">
-      <div class="jelly-glass rounded-full px-4 flex items-center justify-around h-16 shadow-lg border border-white/80 nav-glass-bar">
-        <!-- Landscape Nav Rail Brand Logo (车载/横屏侧边栏顶端微标) -->
-        <div class="hidden landscape:flex flex-col items-center justify-center mb-1 flex-shrink-0">
-          <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-md border border-white/80 p-0.5 bg-white/50">
-            <img src="logo.png" class="w-full h-full object-cover rounded-xl" alt="AuraMusic" />
-          </div>
-        </div>
-
-        <button data-view="discover" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-primary font-bold active-squish" title="推荐">
+      <div class="glass-surface rounded-full nav-glass-bar" data-glass-lens>
+        <span class="nav-selection" aria-hidden="true"></span>
+        <button data-view="discover" aria-current="page" class="nav-item flex flex-col items-center justify-center w-14 h-12 text-primary font-bold" title="推荐">
           <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
           <span class="text-[10px] mt-0.5">推荐</span>
         </button>
@@ -387,7 +373,7 @@
     
     <!-- Top Header -->
     <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto flex-shrink-0" id="fullPlayerHeader">
-      <button id="btnCloseFullPlayer" class="jelly-glass w-11 h-11 rounded-full flex items-center justify-center text-on-surface active-squish shadow-sm">
+      <button id="btnCloseFullPlayer" aria-label="收起播放器" class="glass-surface w-11 h-11 rounded-full flex items-center justify-center">
         <span class="material-symbols-outlined text-[22px]">keyboard_arrow_down</span>
       </button>
       <div class="flex flex-col items-center min-w-0 px-2">
@@ -402,7 +388,7 @@
           </div>
         </div>
       </div>
-      <button id="btnToggleLyrics" class="jelly-glass w-11 h-11 rounded-full flex items-center justify-center text-primary active-squish shadow-sm" title="切换唱片/歌词">
+      <button id="btnToggleLyrics" class="glass-surface w-11 h-11 rounded-full flex items-center justify-center" title="切换唱片/歌词">
         <span class="material-symbols-outlined text-[20px]" id="flipStageIcon">lyrics</span>
       </button>
     </div>
@@ -472,7 +458,7 @@
           <p id="fullArtist" class="text-[13px] text-on-surface-variant font-medium truncate mt-0.5">AuraMusic 灵音</p>
         </div>
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <button id="fullQualityPill" class="jelly-glass px-2.5 py-1 rounded-full text-[11px] font-bold text-secondary uppercase active-squish flex items-center gap-1 shadow-xs border border-secondary/20 cursor-pointer hover:bg-white/80 transition-all">
+          <button id="fullQualityPill" class="glass-surface px-2.5 py-1 rounded-full text-[11px] font-bold uppercase flex items-center gap-1 cursor-pointer" aria-haspopup="dialog" aria-controls="qualityModalContent">
             <span id="fullQualityText">FLAC 无损</span>
             <span class="material-symbols-outlined text-[14px]">expand_more</span>
           </button>
@@ -494,17 +480,17 @@
       </div>
 
       <!-- Main Playback Controls -->
-      <div class="flex items-center justify-center gap-4 sm:gap-6 px-2 pt-1" id="fullPlayerControlsRow">
+      <div class="player-control-glass flex items-center justify-center gap-4 sm:gap-6 px-2 pt-1" id="fullPlayerControlsRow">
         <button id="btnPlayMode" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant active-squish" title="播放模式">
           <span class="material-symbols-outlined text-[22px]" id="playModeIcon">repeat</span>
         </button>
-        <button id="btnPrev" class="w-12 h-12 rounded-full jelly-glass flex items-center justify-center text-on-surface active-squish shadow-sm">
+        <button id="btnPrev" aria-label="上一首" class="w-12 h-12 rounded-full flex items-center justify-center">
           <span class="material-symbols-outlined text-[26px]">skip_previous</span>
         </button>
-        <button id="btnPlayPause" class="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-container text-white flex items-center justify-center shadow-2xl ring-4 ring-primary/20 active-squish transition-all hover:scale-105 mx-1">
+        <button id="btnPlayPause" aria-label="播放或暂停" class="w-16 h-16 rounded-full flex items-center justify-center">
           <span class="material-symbols-outlined text-[36px] flex items-center justify-center" id="fullPlayIcon">play_arrow</span>
         </button>
-        <button id="btnNext" class="w-12 h-12 rounded-full jelly-glass flex items-center justify-center text-on-surface active-squish shadow-sm">
+        <button id="btnNext" aria-label="下一首" class="w-12 h-12 rounded-full flex items-center justify-center">
           <span class="material-symbols-outlined text-[26px]">skip_next</span>
         </button>
         <button id="btnPlaylistQueue" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant active-squish" title="播放列表">
@@ -647,8 +633,8 @@
   </div>
 
   <!-- Modal 4: 音质切换抽屉 (Quality Picker Drawer) -->
-  <div id="qualityModalOverlay" aria-hidden="true" class="fixed inset-0 z-[80] bg-black/40 backdrop-blur-xs flex flex-col justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div id="qualityModalContent" role="dialog" aria-modal="true" aria-labelledby="qualityDialogTitle" tabindex="-1" class="w-full max-w-md mx-auto jelly-glass-solid rounded-t-3xl p-5 flex flex-col gap-4 shadow-2xl border-t border-white/80 transition-transform duration-300 translate-y-full pb-safe">
+  <div id="qualityModalOverlay" aria-hidden="true" inert class="fixed inset-0 z-[80] flex flex-col justify-end transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div id="qualityModalContent" role="dialog" aria-modal="true" aria-labelledby="qualityDialogTitle" tabindex="-1" class="glass-sheet w-full max-w-md mx-auto p-5 flex flex-col gap-4">
       <div class="flex items-center justify-between border-b border-black/5 pb-3">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-primary text-[22px]">graphic_eq</span>
@@ -1014,6 +1000,6 @@
   <script src="update-ui.js"></script>
   <script src="app.js"></script>
   <script src="interaction-motion.js"></script>
-  <script src="song-glass.js"></script>
+  <script src="liquid-glass.js"></script>
 </body>
 </html>

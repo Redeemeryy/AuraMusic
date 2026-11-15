@@ -44,28 +44,6 @@ body, html {
   display: none;
 }
 
-/* Liquid Jelly Glass Effect - GPU Accelerated & Smooth */
-.jelly-glass {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.95),
-    0 4px 16px rgba(0, 88, 188, 0.05);
-  transform: translateZ(0);
-}
-
-.jelly-glass-solid {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px) saturate(170%);
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
-  box-shadow: 
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.95),
-    0 8px 24px rgba(0, 88, 188, 0.08);
-  transform: translateZ(0);
-}
-
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -364,21 +342,14 @@ body, html {
   box-shadow: inset 0 1.5px 3px rgba(255, 255, 255, 1), 0 6px 18px rgba(0, 80, 200, 0.45) !important;
 }
 
-/* Vinyl Glass Stage Halo */
 #vinylStage .jelly-glass {
-  background: radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 55%, rgba(225, 238, 255, 0.35) 100%) !important;
-  border: 2px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 
-    inset 0 3px 6px rgba(255, 255, 255, 1),
-    inset 0 -3px 6px rgba(0, 40, 100, 0.12),
-    0 24px 60px -12px rgba(18, 38, 78, 0.20),
-    0 8px 24px -4px rgba(18, 38, 78, 0.10) !important;
-  backdrop-filter: blur(36px) saturate(220%) !important;
-  -webkit-backdrop-filter: blur(36px) saturate(220%) !important;
+  background: #242731;
+  border: 1px solid #343845;
+  color: #f5f6f9;
+  box-shadow: 0 16px 34px #17192539;
 }
 #vinylAura {
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.42) 0%, rgba(168, 85, 247, 0.38) 45%, rgba(244, 114, 182, 0.25) 75%, transparent 100%) !important;
-  filter: blur(54px) !important;
+  display: none;
 }
 
 /* Pause heavy player animations when the full player is closed to save battery & prevent heating */
@@ -471,32 +442,6 @@ body, html {
     width: 100% !important;
     height: 100% !important;
     margin: 0 !important;
-  }
-
-  nav#mainNavBar .nav-glass-bar {
-    flex-direction: column !important;
-    height: 100% !important;
-    border-radius: 0 24px 24px 0 !important;
-    border-left: none !important;
-    padding-top: max(var(--safe-top, 0px), env(safe-area-inset-top, 0px), 14px) !important;
-    padding-bottom: max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px), 14px) !important;
-    padding-left: max(var(--safe-left, 0px), env(safe-area-inset-left, 0px), 6px) !important;
-    padding-right: 8px !important;
-    justify-content: center !important;
-    gap: 16px !important;
-    box-shadow: 4px 0 24px rgba(0, 88, 188, 0.08) !important;
-  }
-
-  nav#mainNavBar .nav-item {
-    width: 56px !important;
-    height: 52px !important;
-    border-radius: 16px !important;
-    transition: background-color 0.2s ease, transform 0.15s ease !important;
-  }
-
-  nav#mainNavBar .nav-item:active,
-  nav#mainNavBar .nav-item.text-primary {
-    background: rgba(0, 88, 188, 0.1) !important;
   }
 
   /* 3. Top Header Bar (Slim in landscape, aligned to the right of nav rail) */
@@ -735,12 +680,6 @@ body, html {
     flex-shrink: 0 !important;
     padding: 4px 14px 6px 14px !important;
     gap: 2px !important;
-    background: radial-gradient(135% 100% at 20% 0%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.65) 100%) !important;
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-    border-radius: 20px !important;
-    border: 1px solid rgba(255, 255, 255, 0.85) !important;
-    box-shadow: inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.95), 0 8px 24px -4px rgba(24, 38, 70, 0.08) !important;
     display: grid !important;
     grid-template-columns: minmax(160px, 26%) 1fr auto !important;
     grid-template-rows: auto auto !important;

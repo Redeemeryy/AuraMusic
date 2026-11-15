@@ -39,6 +39,7 @@
     navItems: document.querySelectorAll('.nav-item'),
 
     // Search
+    searchForm: document.getElementById('searchForm'),
     searchInput: document.getElementById('searchInput'),
     btnDoSearch: document.getElementById('btnDoSearch'),
     btnClearSearch: document.getElementById('btnClearSearch'),
@@ -393,11 +394,17 @@
     Object.keys(el.views).forEach(key => {
       if (el.views[key]) el.views[key].classList.toggle('active', key === viewName);
     });
-    el.navItems.forEach(item => {
+    el.navItems.forEach((item, index) => {
       const active = item.getAttribute('data-view') === viewName;
       item.classList.toggle('text-primary', active);
       item.classList.toggle('font-bold', active);
       item.classList.toggle('text-on-surface-variant', !active);
+      if (active) {
+        item.setAttribute('aria-current', 'page');
+        item.parentElement.style.setProperty('--nav-selection-index', index);
+      } else {
+        item.removeAttribute('aria-current');
+      }
     });
     try {
       localStorage.setItem('jelly_active_view', viewName);
@@ -463,74 +470,74 @@
 
   // Perform Search (Songs or Playlists)
   let searchGeneration = 0;
+  let searchPositionPending = false;
+
+  function positionSearchResults() {
+    if (!searchPositionPending || document.documentElement.classList.contains('keyboard-open')) return;
+    searchPositionPending = false;
+    if (el.views.search.classList.contains('active')) {
+      el.searchResultsSection.scrollIntoView({ block: 'start', inline: 'nearest' });
+    }
+  }
+
   async function performSearch(query) {
-    console.log('[APP] performSearch called with query:', query, 'type:', state.searchType);
     if (!query) return;
+    el.searchInput.blur();
+    window.AndroidBridge?.hideKeyboard?.();
     if (!window.MusicAPI || !window.MusicAPI.initialized) {
       toast('尚未导入音乐源插件，请先导入音源');
-      openPluginModal();
+      openPluginModal(el.btnDoSearch);
       return;
     }
     const generation = ++searchGeneration;
+    searchPositionPending = false;
+    const isPlaylist = state.searchType === 'playlist';
+    const resultList = isPlaylist ? el.searchPlaylistsList : el.searchResultsList;
     el.btnClearSearch.classList.toggle('hidden', !el.searchInput.value);
     el.hotSearchSection.classList.add('hidden');
     el.searchResultsSection.classList.remove('hidden');
     el.searchLoading.classList.remove('hidden');
+    el.searchResultsList.classList.toggle('hidden', isPlaylist);
+    el.searchPlaylistsList.classList.toggle('hidden', !isPlaylist);
+    el.searchResultCount.textContent = '搜索结果';
+    resultList.replaceChildren();
 
-    if (state.searchType === 'playlist') {
-      el.searchResultsList.classList.add('hidden');
-      el.searchPlaylistsList.classList.remove('hidden');
-      el.searchPlaylistsList.innerHTML = '';
-      try {
-        const res = await window.MusicAPI.searchPlaylists(query, state.currentSource, 1, 20);
-        if (generation !== searchGeneration) return;
-        el.searchLoading.classList.add('hidden');
-        const items = res.items || [];
-        el.searchResultCount.textContent = `${items.length} 个歌单`;
-        if (items.length === 0) {
-          el.searchPlaylistsList.innerHTML = '<div class="col-span-2 text-center py-8 text-[13px] text-outline">未找到相关歌单，请尝试更换关键词或平台</div>';
-          return;
-        }
-        items.forEach(pl => {
-          const card = createPlaylistCard(pl, () => {
-            openPlaylistDetail(pl.ref, {
-              title: pl.title,
-              author: pl.subtitle || pl.playlist?.author || '未知作者',
-              artworkUrl: pl.playlist?.artworkUrl || pl.artworkUrl,
-              trackCount: pl.playlist?.trackCount
-            });
-          });
-          el.searchPlaylistsList.appendChild(card);
-        });
-      } catch (err) {
-        if (generation !== searchGeneration) return;
-        el.searchLoading.classList.add('hidden');
-        el.searchPlaylistsList.innerHTML = `<div class="col-span-2 text-center py-8 text-[13px] text-red-500">搜索歌单出错: ${err.message || '网络超时'}</div>`;
+    try {
+      const res = isPlaylist
+        ? await window.MusicAPI.searchPlaylists(query, state.currentSource, 1, 20)
+        : await window.MusicAPI.search(query, state.currentSource, 1, 30);
+      if (generation !== searchGeneration) return;
+      const items = res.items || [];
+      el.searchResultCount.textContent = `${items.length} ${isPlaylist ? '个歌单' : '首歌曲'}`;
+      if (items.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'col-span-2 text-center py-8 text-[13px] text-outline';
+        empty.textContent = isPlaylist
+          ? '未找到相关歌单，请尝试更换关键词或平台'
+          : '未找到相关歌曲，请尝试切换音源平台';
+        resultList.appendChild(empty);
+        return;
       }
-    } else {
-      el.searchResultsList.classList.remove('hidden');
-      el.searchPlaylistsList.classList.add('hidden');
-      el.searchResultsList.innerHTML = '';
-      try {
-        const res = await window.MusicAPI.search(query, state.currentSource, 1, 30);
-        if (generation !== searchGeneration) return;
+      const rows = isPlaylist
+        ? items.map(pl => createPlaylistCard(pl, () => openPlaylistDetail(pl.ref, {
+          title: pl.title,
+          author: pl.subtitle || pl.playlist?.author || '未知作者',
+          artworkUrl: pl.playlist?.artworkUrl || pl.artworkUrl,
+          trackCount: pl.playlist?.trackCount
+        })))
+        : items.map(track => createTrackItem(track, () => playSearchedTrack(track)));
+      resultList.replaceChildren(...rows);
+    } catch (err) {
+      if (generation !== searchGeneration) return;
+      const failure = document.createElement('div');
+      failure.className = 'col-span-2 text-center py-8 text-[13px] text-red-500';
+      failure.textContent = `${isPlaylist ? '搜索歌单出错' : '搜索发生错误'}：${err?.message || '网络连接超时'}`;
+      resultList.replaceChildren(failure);
+    } finally {
+      if (generation === searchGeneration) {
         el.searchLoading.classList.add('hidden');
-        const items = res.items || [];
-        el.searchResultCount.textContent = `${items.length} 首歌曲`;
-        if (items.length === 0) {
-          el.searchResultsList.innerHTML = '<div class="text-center py-8 text-[13px] text-outline">未找到相关歌曲，请尝试切换音源平台</div>';
-          return;
-        }
-        items.forEach(track => {
-          const itemEl = createTrackItem(track, () => {
-            playSearchedTrack(track);
-          });
-          el.searchResultsList.appendChild(itemEl);
-        });
-      } catch (err) {
-        if (generation !== searchGeneration) return;
-        el.searchLoading.classList.add('hidden');
-        el.searchResultsList.innerHTML = `<div class="text-center py-8 text-[13px] text-red-500">搜索发生错误: ${err.message || '网络连接超时'}</div>`;
+        searchPositionPending = true;
+        positionSearchResults();
       }
     }
   }
@@ -891,9 +898,55 @@
     } catch (e) {}
   }
 
+  function sameQueueTrack(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const aId = a.ref?.id ?? a.id;
+    const bId = b.ref?.id ?? b.id;
+    return aId != null && bId != null && String(aId) === String(bId) &&
+      (a.ref?.providerId || a.source || 'tx') === (b.ref?.providerId || b.source || 'tx');
+  }
+
+  function queueTrackIndex(track) {
+    const selectedTrack = state.queue[state.queueIndex];
+    if (selectedTrack && selectedTrack === track) return state.queueIndex;
+    const exactIndex = state.queue.indexOf(track);
+    if (exactIndex >= 0) return exactIndex;
+    if (sameQueueTrack(selectedTrack, track)) return state.queueIndex;
+    return state.queue.findIndex(item => sameQueueTrack(item, track));
+  }
+
+  const previousQueueTracks = [];
+  let lastPlayedQueueTrack = state.currentTrack;
+  let pendingQueuePlayback = null;
+
+  function resetQueuePlaybackHistory() {
+    previousQueueTracks.length = 0;
+    lastPlayedQueueTrack = null;
+    pendingQueuePlayback = null;
+  }
+
+  function confirmQueuePlayback(trackKey) {
+    if (!pendingQueuePlayback || pendingQueuePlayback.trackKey !== trackKey) return;
+    const { track, historyIndex } = pendingQueuePlayback;
+    pendingQueuePlayback = null;
+
+    if (queueTrackIndex(track) < 0) return;
+    if (historyIndex >= 0) {
+      previousQueueTracks.length = historyIndex;
+    } else if (!sameQueueTrack(lastPlayedQueueTrack, track) && queueTrackIndex(lastPlayedQueueTrack) >= 0) {
+      previousQueueTracks.push(lastPlayedQueueTrack);
+    }
+    lastPlayedQueueTrack = track;
+  }
+
   // Set / Replace entire queue (for Play All in playlists, albums, recommendations, favorites)
   function setQueue(tracks, startIndex = 0, sourceTitle = '当前播放列表') {
     if (!Array.isArray(tracks) || tracks.length === 0) return;
+    if (sourceTitle !== state.queueTitle || tracks.length !== state.queue.length ||
+        !tracks.every((track, index) => sameQueueTrack(track, state.queue[index]))) {
+      resetQueuePlaybackHistory();
+    }
     state.queue = [...tracks];
     state.queueIndex = Math.max(0, Math.min(startIndex, state.queue.length - 1));
     state.queueTitle = sourceTitle;
@@ -906,11 +959,13 @@
   // Play searched track in queue context (Insert into current queue, or base on history/favorites)
   function playSearchedTrack(track) {
     if (state.queue && state.queue.length > 0) {
-      // Check if song already exists in current queue
-      const existingIdx = state.queue.findIndex(t => 
-        t.ref?.id === track.ref?.id || 
-        (normalizeTitle(t.title) === normalizeTitle(track.title) && (t.subtitle || '').trim().toLowerCase() === (track.subtitle || '').trim().toLowerCase())
-      );
+      let existingIdx = queueTrackIndex(track);
+      if (existingIdx < 0) {
+        existingIdx = state.queue.findIndex(t =>
+          ((t.ref?.id ?? t.id) == null || (track.ref?.id ?? track.id) == null) &&
+          normalizeTitle(t.title) === normalizeTitle(track.title) && (t.subtitle || '').trim().toLowerCase() === (track.subtitle || '').trim().toLowerCase()
+        );
+      }
       if (existingIdx >= 0) {
         state.queueIndex = existingIdx;
       } else {
@@ -926,8 +981,9 @@
         : ((state.favorites && state.favorites.length > 0) ? state.favorites : (state.dailyRecTracks || []));
       
       const cleanBase = (baseTracks || []).filter(t => 
-        t.ref?.id !== track.ref?.id && normalizeTitle(t.title) !== normalizeTitle(track.title)
+        !sameQueueTrack(t, track) && normalizeTitle(t.title) !== normalizeTitle(track.title)
       );
+      resetQueuePlaybackHistory();
       state.queue = [track, ...cleanBase.slice(0, 49)];
       state.queueIndex = 0;
       state.queueTitle = '搜索插播 • 历史记录';
@@ -940,14 +996,16 @@
   // Play Track
   let playRequestId = 0;
   let pendingNativeTrackKey = null;
-  async function playTrack(track, queue = null, queueTitle = null) {
+  async function playTrack(track, historyIndex = -1) {
     const requestId = ++playRequestId;
     const lyricTrackKey = JSON.stringify([track.ref?.providerId || '', track.ref?.id || track.title, requestId]);
+    pendingQueuePlayback = { trackKey: lyricTrackKey, track, historyIndex };
     state.lyricTrackKey = lyricTrackKey;
     pendingNativeTrackKey = lyricTrackKey;
     ++lyricRequestId;
     state.lyrics = [];
     state.currentLyricIndex = -1;
+    renderLyricsStatus('正在加载同步歌词…');
     state.currentTime = 0;
     state.duration = track.metadata?.durationMs ? track.metadata.durationMs / 1000 : 0;
     state.isSeeking = false;
@@ -962,23 +1020,10 @@
     if (el.progressBar) el.progressBar.style.width = '0%';
     if (el.progressThumb) el.progressThumb.style.left = '0%';
     if (el.miniProgressBar) el.miniProgressBar.style.width = '0%';
-    if (queue) {
-      state.queue = queue;
-      state.queueIndex = queue.findIndex(t => t.ref?.id === track.ref?.id);
-      if (queueTitle) state.queueTitle = queueTitle;
-    } else {
-      if (!state.queue || state.queue.length === 0) {
-        state.queue = [track];
-        state.queueIndex = 0;
-      } else {
-        const existingIdx = state.queue.findIndex(t => t.ref?.id === track.ref?.id);
-        if (existingIdx >= 0) {
-          state.queueIndex = existingIdx;
-        } else {
-          state.queue.push(track);
-          state.queueIndex = state.queue.length - 1;
-        }
-      }
+    state.queueIndex = queueTrackIndex(track);
+    if (state.queueIndex < 0) {
+      state.queue.push(track);
+      state.queueIndex = state.queue.length - 1;
     }
     state.currentTrack = track;
     saveQueueToStorage();
@@ -1037,6 +1082,9 @@
       } else {
         pendingNativeTrackKey = null;
       }
+      if (typeof window.AndroidBridge?.getPlaybackState !== 'function') {
+        confirmQueuePlayback(lyricTrackKey);
+      }
 
       state.isPlaying = true;
       updatePlayState(true);
@@ -1050,7 +1098,9 @@
     } catch (err) {
       if (requestId !== playRequestId) return;
       pendingNativeTrackKey = null;
+      pendingQueuePlayback = null;
       updatePlayState(false);
+      renderLyricsStatus('暂无同步歌词');
       syncPlaybackFromNative();
       toast('播放失败: ' + (err.message || '网络异常'));
       console.error('Resolve error:', err);
@@ -1157,7 +1207,7 @@
   function togglePlay() {
     if (!state.currentTrack) {
       if (state.queue.length > 0) {
-        playTrack(state.queue[0], state.queue);
+        playTrack(state.queue[0]);
       }
       return;
     }
@@ -1186,12 +1236,13 @@
   // Next Track
   function playNext() {
     if (state.queue.length === 0) return;
-    let nextIdx = state.queueIndex + 1;
     if (state.playMode === 'shuffle') {
-      nextIdx = Math.floor(Math.random() * state.queue.length);
-    } else if (nextIdx >= state.queue.length) {
-      nextIdx = 0;
+      const candidates = state.queue.filter(track => !sameQueueTrack(track, state.currentTrack));
+      const nextTrack = candidates[Math.floor(Math.random() * candidates.length)];
+      playTrack(nextTrack || state.queue[state.queueIndex] || state.queue[0]);
+      return;
     }
+    const nextIdx = (state.queueIndex + 1) % state.queue.length;
     state.queueIndex = nextIdx;
     playTrack(state.queue[nextIdx]);
   }
@@ -1199,6 +1250,26 @@
   // Prev Track
   function playPrev() {
     if (state.queue.length === 0) return;
+    if (state.playMode === 'shuffle') {
+      const historyIndex = pendingQueuePlayback?.historyIndex ?? -1;
+      if (pendingQueuePlayback && historyIndex < 0 && !sameQueueTrack(lastPlayedQueueTrack, state.currentTrack)) {
+        const lastPlayedIndex = queueTrackIndex(lastPlayedQueueTrack);
+        if (lastPlayedIndex >= 0) {
+          state.queueIndex = lastPlayedIndex;
+          playTrack(state.queue[lastPlayedIndex]);
+          return;
+        }
+      }
+      const start = historyIndex >= 0 ? historyIndex : previousQueueTracks.length;
+      for (let i = start - 1; i >= 0; i--) {
+        const index = queueTrackIndex(previousQueueTracks[i]);
+        if (index < 0 || sameQueueTrack(state.queue[index], state.currentTrack)) continue;
+        state.queueIndex = index;
+        playTrack(state.queue[index], i);
+        return;
+      }
+      return;
+    }
     let prevIdx = state.queueIndex - 1;
     if (prevIdx < 0) prevIdx = state.queue.length - 1;
     state.queueIndex = prevIdx;
@@ -1880,7 +1951,7 @@
 
     const fragment = document.createDocumentFragment();
     state.queue.forEach((track, idx) => {
-      const isCurrent = (idx === state.queueIndex) || (state.currentTrack && state.currentTrack.ref?.id === track.ref?.id);
+      const isCurrent = idx === state.queueIndex;
       const div = document.createElement('div');
       div.className = `queue-item ${isCurrent ? 'queue-item-active' : ''}`;
       div.dataset.index = idx;
@@ -1905,7 +1976,7 @@
               playTrack(state.queue[state.queueIndex]);
             } else {
               state.queueIndex = -1;
-              state.currentTrack = null;
+              resetQueuePlaybackHistory();
               saveQueueToStorage();
               renderQueueList();
               toast('播放队列已清空');
@@ -1945,6 +2016,7 @@
   el.btnClearQueue.addEventListener('click', () => {
     state.queue = [];
     state.queueIndex = -1;
+    resetQueuePlaybackHistory();
     saveQueueToStorage();
     renderQueueList();
     toast('播放队列已清空');
@@ -2425,19 +2497,27 @@
     }
   });
 
-  // Load Lyrics (Bug 3: Eliminate race conditions, fallback across platforms, multi-format parsing)
   let lyricRequestId = 0;
+  const lyricEntityDecoder = document.createElement('textarea');
 
-  function hasValidLyrics(res) {
-    if (!res) return false;
-    if (Array.isArray(res.lines) && res.lines.length > 0) return true;
-    const t = res.plainText || res.lyric || res.lrc;
-    return typeof t === 'string' && t.trim().length > 10;
+  function decodeLyricEntities(text) {
+    if (!text.includes('&')) return text;
+    lyricEntityDecoder.innerHTML = text;
+    return lyricEntityDecoder.value;
+  }
+
+  function cleanLyricText(text) {
+    if (typeof text !== 'string') return '';
+    return decodeLyricEntities(text)
+      .replace(/<(?:\d{1,3}:\d{2}(?:[.:]\d{1,3})?|\d+(?:,\s*\d+){1,2})>/g, '')
+      .replace(/<(?:tt:)?br(?:\s+[^<>]*?)?\s*\/?>/gi, ' ')
+      .replace(/<\/?(?:tt:)?(?:b|big|color|del|div|em|font|i|ins|mark|p|rp|rt|ruby|s|small|span|strike|strong|sub|sup|u)(?:[\s=][^<>]*?)?\s*\/?>/gi, '')
+      .trim();
   }
 
   async function loadLyrics(track, lyricTrackKey) {
     const currentReqId = ++lyricRequestId;
-    el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-on-surface-variant/60 font-medium my-auto">正在加载同步歌词...</div>';
+    renderLyricsStatus('正在加载同步歌词…');
     state.lyrics = [];
     state.currentLyricIndex = -1;
     isManualUserScrollingLyrics = false;
@@ -2447,20 +2527,22 @@
     hideLyricsTimelineGuide();
 
     try {
-      let res = await window.MusicAPI.getLyrics(track.ref);
+      let lyrics = parseLyrics(await window.MusicAPI.getLyrics(track.ref));
       if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
 
-      // Cross-platform fallback if lyrics are empty
-      if (!hasValidLyrics(res)) {
+      if (!lyrics.some(line => line.text)) {
         try {
           const fallbackSource = track.ref?.providerId === 'kw' ? 'wy' : 'kw';
-          const query = track.title + ' ' + (track.metadata?.artists?.[0] || '');
+          const artist = track.metadata?.artists?.[0] || track.subtitle || '';
+          const query = [track.title, artist].filter(Boolean).join(' ');
           const searchRes = await window.MusicAPI.search(query, fallbackSource, 1, 1);
-          if (searchRes && searchRes.items && searchRes.items.length > 0) {
-            const fallbackLyrics = await window.MusicAPI.getLyrics(searchRes.items[0].ref);
-            if (hasValidLyrics(fallbackLyrics)) {
-              res = fallbackLyrics;
-            }
+          if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
+          const match = searchRes?.items?.[0];
+          const matchArtist = match?.metadata?.artists?.[0] || match?.subtitle || '';
+          if (match?.ref && normalizeTitle(match.title) === normalizeTitle(track.title) &&
+              (!artist || normalizeTitle(matchArtist) === normalizeTitle(artist))) {
+            const fallback = parseLyrics(await window.MusicAPI.getLyrics(match.ref));
+            if (fallback.some(line => line.text)) lyrics = fallback;
           }
         } catch (fbErr) {
           console.warn('[APP] Fallback lyrics fetch error:', fbErr);
@@ -2469,7 +2551,7 @@
 
       if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
 
-      parseLyrics(res);
+      state.lyrics = lyrics;
       // Hand the full timeline to the service once. It follows the player's clock
       // even when Android suspends WebView timers in the background.
       if (window.AndroidBridge?.setLyricTimeline) {
@@ -2478,26 +2560,25 @@
       renderLyrics();
     } catch (e) {
       if (currentReqId !== lyricRequestId || lyricTrackKey !== state.lyricTrackKey) return;
-      el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-outline font-medium my-auto">纯音乐或暂无歌词</div>';
+      renderLyricsStatus('纯音乐或暂无歌词');
     }
   }
 
   // Parse TTML, QRC, or LRC
   function parseLyrics(res) {
-    state.lyrics = [];
-    if (!res) return;
+    if (!res) return [];
 
-    // Check if TTML verbatim object array with lines
-    if (res.lines && Array.isArray(res.lines) && res.lines.length > 0) {
-      state.lyrics = res.lines.map(line => {
+    let structuredLines = [];
+    if (Array.isArray(res.lines)) {
+      structuredLines = res.lines.map(line => {
         const text = line.text || (line.words ? line.words.map(w => w.text || w.word || '').join('') : '') || '';
         return {
           time: (line.startTimeMs || 0) / 1000,
           endTime: (line.endTimeMs || 0) / 1000,
-          text: text.trim()
+          text: cleanLyricText(text)
         };
       }).filter(l => Number.isFinite(l.time) && l.time >= 0).sort((a, b) => a.time - b.time);
-      if (state.lyrics.length > 0) return;
+      if (structuredLines.some(line => line.text)) return structuredLines;
     }
 
     // Extract text from plainText, lyric, or lrc
@@ -2519,7 +2600,7 @@
       text = res.lyric || res.lrc || '';
     }
 
-    if (!text) return;
+    if (typeof text !== 'string' || !text) return structuredLines;
 
     // Base64 decode if base64 string
     if (typeof text === 'string' && /^[A-Za-z0-9+/=]{50,}$/.test(text.trim())) {
@@ -2531,9 +2612,10 @@
     // XML QrcContent wrapped
     const qrcContentMatch = text.match(/LyricContent="([\s\S]*?)"/);
     if (qrcContentMatch) {
-      text = qrcContentMatch[1].replace(/\\n/g, '\n');
+      text = decodeLyricEntities(qrcContentMatch[1]).replace(/\\n/g, '\n');
     }
 
+    const lyrics = [];
     const lines = text.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
@@ -2543,26 +2625,26 @@
       const qrcMatch = trimmed.match(/^\[(\d+),\s*(\d+)\](.*)/);
       if (qrcMatch) {
         const time = parseInt(qrcMatch[1]) / 1000;
-        const cleanText = qrcMatch[3].replace(/\(\d+,\d+\)/g, '').trim();
-        state.lyrics.push({ time, endTime: time + parseInt(qrcMatch[2]) / 1000, text: cleanText });
+        const cleanText = cleanLyricText(qrcMatch[3].replace(/\(\d+,\s*\d+\)/g, ''));
+        lyrics.push({ time, endTime: time + parseInt(qrcMatch[2]) / 1000, text: cleanText });
         continue;
       }
 
       // 2. Standard & Multi-timestamp LRC format: [mm:ss.xx][mm:ss.xx]words...
       const timestampMatches = [...trimmed.matchAll(/\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
       if (timestampMatches.length > 0) {
-        const cleanText = trimmed.replace(/\[\d{2}:\d{2}(?:\.\d{1,3})?\]/g, '').trim();
+        const cleanText = cleanLyricText(trimmed.replace(/\[\d{2}:\d{2}(?:\.\d{1,3})?\]/g, ''));
         for (const m of timestampMatches) {
           const min = parseInt(m[1]);
           const sec = parseInt(m[2]);
           const ms = m[3] ? parseInt(m[3].padEnd(3, '0')) : 0;
           const time = min * 60 + sec + ms / 1000;
-          state.lyrics.push({ time, text: cleanText });
+          lyrics.push({ time, text: cleanText });
         }
       }
     }
 
-    state.lyrics.sort((a, b) => a.time - b.time);
+    return lyrics.length ? lyrics.sort((a, b) => a.time - b.time) : structuredLines;
   }
 
   // Render Lyrics Lines & Timeline Guide Handling
@@ -2720,9 +2802,16 @@
     });
   }
 
+  function renderLyricsStatus(message) {
+    const status = document.createElement('div');
+    status.className = 'text-[14px] text-outline font-medium my-auto';
+    status.textContent = message;
+    el.lyricsScrollContainer.replaceChildren(status);
+  }
+
   function renderLyrics() {
     if (state.lyrics.length === 0) {
-      el.lyricsScrollContainer.innerHTML = '<div class="text-[14px] text-outline font-medium my-auto">暂无同步歌词</div>';
+      renderLyricsStatus('暂无同步歌词');
       return;
     }
 
@@ -2821,6 +2910,7 @@
 
   window.onNativePlaybackStateChanged = function (isPlaying) {
     updatePlayState(isPlaying);
+    if (isPlaying && pendingQueuePlayback) syncPlaybackFromNative();
   };
 
   window.onNativePlaybackProgress = function (posMs, durMs) {
@@ -2844,6 +2934,7 @@
   };
 
   window.onNativeTrackCompleted = function () {
+    if (state.queue.length === 0) return;
     if (state.playMode === 'loop') {
       if (state.currentTrack) playTrack(state.currentTrack);
     } else {
@@ -2887,15 +2978,26 @@
             state.lyricTrackKey !== pb.track.lyricTrackKey;
           if (trackChanged) {
             ++lyricRequestId;
-            state.currentTrack = pb.track;
+            state.queueIndex = queueTrackIndex(pb.track);
+            state.currentTrack = state.queue[state.queueIndex] ||
+              (sameQueueTrack(state.currentTrack, pb.track) ? state.currentTrack : pb.track);
             state.lyricTrackKey = pb.track.lyricTrackKey;
-            state.lyrics = Array.isArray(pb.track.lyricsTimeline) ? pb.track.lyricsTimeline : [];
+            const savedTimeline = Array.isArray(pb.track.lyricsTimeline) ? pb.track.lyricsTimeline : [];
+            state.lyrics = savedTimeline.map(line => ({ ...line, text: cleanLyricText(line.text) }));
+            if (state.lyricTrackKey && state.lyrics.some((line, index) => line.text !== savedTimeline[index].text)) {
+              window.AndroidBridge.setLyricTimeline?.(state.lyricTrackKey, JSON.stringify(state.lyrics));
+            }
             state.currentLyricIndex = -1;
             renderLyrics();
             updateMiniPlayer(state.currentTrack);
             updateFullPlayer(state.currentTrack);
             updateFavHeart();
+            saveQueueToStorage();
+            localStorage.setItem('jelly_current_track', JSON.stringify(state.currentTrack));
+            if (!el.queueOverlay.classList.contains('translate-y-full')) renderQueueList();
           }
+          if (playRequestId === 0) lastPlayedQueueTrack = pb.track;
+          if (pb.isPlaying) confirmQueuePlayback(pb.track.lyricTrackKey);
         }
         if (typeof pb.isPlaying === 'boolean') {
           updatePlayState(pb.isPlaying);
@@ -2926,15 +3028,16 @@
   window.addEventListener('focus', syncPlaybackFromNative);
 
   // Search input triggers
-  el.btnDoSearch.addEventListener('click', () => performSearch(el.searchInput.value.trim()));
-  el.searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') performSearch(el.searchInput.value.trim());
+  el.searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    performSearch(el.searchInput.value.trim());
   });
   el.searchInput.addEventListener('input', () => {
     el.btnClearSearch.classList.toggle('hidden', !el.searchInput.value);
   });
   el.btnClearSearch.addEventListener('click', () => {
     searchGeneration++;
+    searchPositionPending = false;
     el.searchInput.value = '';
     el.btnClearSearch.classList.add('hidden');
     el.searchResultsSection.classList.add('hidden');
@@ -2980,8 +3083,18 @@
   // ==========================================
   // Quality Picker Modal Drawer (Bug 5)
   // ==========================================
+  function setSheetOrigin(surface, trigger) {
+    const from = trigger.getBoundingClientRect();
+    const to = surface.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (from.left + from.width / 2 - to.left) / to.width));
+    const y = Math.max(0, Math.min(1, (from.top + from.height / 2 - to.top) / to.height));
+    surface.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+  }
+
   function openQualityPickerModal() {
     if (!el.qualityModalOverlay) return;
+    setSheetOrigin(document.getElementById('qualityModalContent'), el.fullQualityPill);
+    el.qualityModalOverlay.inert = false;
     el.qualityModalOverlay.classList.remove('pointer-events-none');
     el.qualityModalOverlay.classList.add('active');
     el.qualityModalOverlay.setAttribute('aria-hidden', 'false');
@@ -3046,9 +3159,10 @@
 
   function closeQualityPickerModal() {
     if (!el.qualityModalOverlay) return;
+    el.fullQualityPill?.focus({ preventScroll: true });
+    el.qualityModalOverlay.inert = true;
     el.qualityModalOverlay.classList.remove('active');
     el.qualityModalOverlay.setAttribute('aria-hidden', 'true');
-    el.fullQualityPill?.focus({ preventScroll: true });
     setTimeout(() => {
       if (!el.qualityModalOverlay.classList.contains('active')) {
         el.qualityModalOverlay.classList.add('pointer-events-none');
@@ -3275,9 +3389,10 @@
   window.syncPluginUI = syncPluginUI;
 
   let pluginManagerReturnFocus = null;
-  function openPluginModal() {
-    if (!el.pluginModalOverlay) return;
-    pluginManagerReturnFocus = document.activeElement;
+  function openPluginModal(invoker = document.activeElement) {
+    if (!el.pluginModalOverlay || el.pluginModalOverlay.getAttribute('aria-hidden') === 'false') return;
+    pluginManagerReturnFocus = invoker.currentTarget || invoker;
+    setSheetOrigin(el.pluginModalOverlay, pluginManagerReturnFocus);
     syncPluginUI();
     el.pluginModalOverlay.inert = false;
     el.pluginModalOverlay.setAttribute('aria-hidden', 'false');
@@ -3355,6 +3470,7 @@
 
     // Show modal with animation
     pluginNoticeReturnFocus = document.activeElement;
+    if (el.pluginNoticeCard) setSheetOrigin(el.pluginNoticeCard, pluginNoticeReturnFocus);
     el.pluginNoticeOverlay.inert = false;
     el.pluginNoticeOverlay.setAttribute('aria-hidden', 'false');
     el.pluginNoticeOverlay.classList.remove('pointer-events-none', 'opacity-0');
@@ -3872,8 +3988,10 @@
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closePluginRemoveDialog();
   });
   if (el.btnUninstallPlugin) {
-    el.btnUninstallPlugin.addEventListener('click', () => {
-      if (!pluginRemoveDialog?.open) pluginRemoveDialog?.showModal();
+    el.btnUninstallPlugin.addEventListener('click', event => {
+      if (!pluginRemoveDialog || pluginRemoveDialog.open) return;
+      pluginRemoveDialog.showModal();
+      setSheetOrigin(pluginRemoveDialog, event.currentTarget);
     });
   }
   document.getElementById('btnConfirmPluginRemove')?.addEventListener('click', () => {
@@ -5344,18 +5462,23 @@
     } catch (_) { diagnostic.textContent = '暂时无法读取，请重试'; }
   }
   const modeDialog = document.getElementById('playModeDialog');
+  const modeTrigger = document.getElementById('settingPlayMode');
   let modeCloseTimer;
   function closeModeDialog() {
     modeDialog.classList.remove('is-open');
     clearTimeout(modeCloseTimer);
-    modeCloseTimer = setTimeout(() => modeDialog.close(), window.AuraPreferences.get().reduceMotion ? 0 : 180);
+    const reduced = window.AuraPreferences.get().reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) modeDialog.close();
+    else modeCloseTimer = setTimeout(() => modeDialog.close(), 180);
   }
-  document.getElementById('settingPlayMode').addEventListener('click', () => {
+  modeTrigger.addEventListener('click', () => {
     clearTimeout(modeCloseTimer);
     modeDialog.showModal();
-    requestAnimationFrame(() => modeDialog.classList.add('is-open'));
+    setSheetOrigin(modeDialog, modeTrigger);
+    modeDialog.classList.add('is-open');
     modeDialog.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
   });
+  modeDialog.addEventListener('close', () => modeTrigger.focus({ preventScroll: true }));
   document.getElementById('closePlayModeDialog').addEventListener('click', closeModeDialog);
   modeDialog.addEventListener('cancel', e => { e.preventDefault(); closeModeDialog(); });
   modeDialog.addEventListener('click', e => { if (e.target === modeDialog) { const r = modeDialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeModeDialog(); } });
@@ -5388,7 +5511,10 @@
   document.getElementById('btnRefreshDiagnostics').addEventListener('click', refreshSystemSettings);
   window.addEventListener('focus', refreshSystemSettings);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSystemSettings(); });
-  window.onNativeKeyboardChanged = visible => document.documentElement.classList.toggle('keyboard-open', visible);
+  window.onNativeKeyboardChanged = visible => {
+    document.documentElement.classList.toggle('keyboard-open', visible);
+    if (!visible) positionSearchResults();
+  };
   setPlayMode(state.playMode, false);
   document.documentElement.classList.toggle('no-track', !state.currentTrack);
   refreshSystemSettings();
@@ -5414,6 +5540,11 @@
       // Restore playback from native service if active, or restore last track in mini player
       syncPlaybackFromNative();
       if (state.currentTrack) {
+        const savedQueueIndex = queueTrackIndex(state.currentTrack);
+        if (state.queueIndex !== savedQueueIndex) {
+          state.queueIndex = savedQueueIndex;
+          saveQueueToStorage();
+        }
         updateMiniPlayer(state.currentTrack);
         updateFullPlayer(state.currentTrack);
       }

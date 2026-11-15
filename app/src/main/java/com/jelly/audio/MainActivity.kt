@@ -586,6 +586,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    fun hideKeyboard() {
+        WindowCompat.getInsetsController(window, webView).hide(WindowInsetsCompat.Type.ime())
+    }
+
     fun evaluateJavascript(script: String) {
         if (::webView.isInitialized) {
             webView.evaluateJavascript(script, null)

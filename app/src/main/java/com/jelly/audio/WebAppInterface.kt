@@ -84,6 +84,11 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
+    fun hideKeyboard() {
+        mainHandler.post { activity.hideKeyboard() }
+    }
+
+    @JavascriptInterface
     fun updateCurrentLyric(lyric: String) {
         mainHandler.post {
             activity.musicService?.updateCurrentLyric(lyric)

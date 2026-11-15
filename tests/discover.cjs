@@ -31,6 +31,13 @@ const path=require('node:path');
       assert.equal(await p.locator('#dailyRecTitle').textContent(),'每日精选');
       const dims=await p.locator('#view-discover').evaluate(e=>[e.clientWidth,e.scrollWidth]);
       assert.ok(dims[1]<=dims[0]+1,'populated page must not overflow');
+      if (width > height) {
+        const rail = await p.locator('.nav-glass-bar').boundingBox();
+        const artwork = await p.locator('#dailyRecArtwork').boundingBox();
+        const action = await p.locator('#btnQuickPlayFeatured').boundingBox();
+        assert.ok(artwork.x < rail.x + rail.width, 'landscape rail overlaps actual cover art');
+        assert.ok(action.x > rail.x + rail.width, 'landscape preserves direct access to the action');
+      }
       assert.equal(await p.locator('#discoverRankList').innerText().then(t=>t.includes('FLAC')),false);
       await p.screenshot({path:`artifacts/discover-new-${width}.png`});
       await p.locator('#btnViewDailyRecDetail').click();

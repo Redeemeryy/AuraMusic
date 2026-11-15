@@ -1,18 +1,16 @@
-/* Source management shares the clear, softly refracted controls of the player. */
 #pluginModalOverlay {
   --source-ink: #263d53;
   --source-muted: #697c8e;
-  --source-fill: linear-gradient(135deg, #ffffff75, #ffffff24 55%, #ffffff48);
   isolation: isolate; color: var(--source-ink); padding-top: var(--top-inset);
   padding-bottom: var(--bottom-inset); height: 100dvh;
-  background: #edf3f8;
-  transition: transform 380ms cubic-bezier(.22,.8,.2,1);
+  background: var(--surface);
+  opacity: 1;
+  transform: none;
+  transition: transform 260ms var(--ease-glass), opacity 180ms ease;
 }
-#pluginModalOverlay::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(ellipse at 5% 12%, #c8e6e975, transparent 62%),
-    radial-gradient(ellipse at 98% 72%, #d5dbf060, transparent 58%),
-    repeating-radial-gradient(ellipse at 125% -10%, transparent 0 46px, #7e99ae1b 47px 48px, transparent 50px 80px);
+#pluginModalOverlay.translate-y-full {
+  opacity: 0;
+  transform: scale(.94);
 }
 #pluginModalOverlay > .source-manager-header {
   flex: 0 0 68px; display: flex; align-items: center; justify-content: space-between;
@@ -22,8 +20,7 @@
 .source-icon-button, .source-icon-tile, .source-header-mark { display: grid; place-items: center; flex-shrink: 0; }
 .source-icon-button {
   width: 44px; height: 44px; border-radius: 50%; color: #365771;
-  background: linear-gradient(135deg,#ffffff65,#ffffff18); border: 1px solid #ffffff38;
-  box-shadow: var(--glass-shadow); backdrop-filter: blur(10px) saturate(150%); -webkit-backdrop-filter: blur(10px) saturate(150%);
+  background: #fff; border: 1px solid #e1e5eb;
 }
 .source-header-mark { width: 44px; height: 44px; font-size: 24px; color: #7893a8; font-weight: 300; }
 #pluginModalOverlay > .source-manager-scroll {
@@ -35,15 +32,8 @@
 .source-page-heading h2 { font-size: clamp(25px, 6.8vw, 31px); line-height: 1.25; font-weight: 650; letter-spacing: -.045em; }
 .source-page-heading p { margin-top: 9px; color: var(--source-muted); font-size: 12px; line-height: 1.6; }
 .source-glass {
-  position: relative; min-width: 0; background: var(--source-fill, linear-gradient(135deg,#ffffff8a,#ffffff40 55%,#ffffff63));
-  border: 1px solid #ffffff40; border-radius: 27px;
-  box-shadow: 0 7px 26px #304e6c07, inset 0 1px 1px #ffffff79, inset 0 -1px 1px #56708b0b;
-  backdrop-filter: blur(15px) saturate(155%); -webkit-backdrop-filter: blur(15px) saturate(155%);
-}
-.source-glass::before {
-  content: ''; position: absolute; pointer-events: none; inset: 0; border-radius: inherit;
-  background: linear-gradient(130deg,#fff8,transparent 20%,transparent 78%,#fff3);
-  opacity: .24; z-index: -1;
+  position: relative; min-width: 0; background: #fff;
+  border: 1px solid #e3e5eb; border-radius: 24px;
 }
 .source-active-card { display: flex; flex-direction: column; gap: 17px; padding: 22px 20px 12px; }
 .source-section-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 550; color: var(--source-muted); }
@@ -65,9 +55,7 @@
   position: relative; display: flex; align-items: center; justify-content: center; gap: 7px;
   min-width: 0; min-height: 46px; padding: 10px 14px; border-radius: 24px;
   color: #466179; font-size: 13px; font-weight: 550; line-height: 1.4;
-  background: linear-gradient(135deg,#ffffff63,#ffffff19 55%,#ffffff38); border: 1px solid #ffffff40;
-  box-shadow: 0 3px 10px #36526e06,inset 0 1px 1px #ffffff60,inset 0 -1px 1px #4060800a;
-  backdrop-filter: blur(8px) saturate(150%); -webkit-backdrop-filter: blur(8px) saturate(150%);
+  background: #f4f6f9; border: 1px solid #e3e7ed;
   transition: background-color 220ms ease,box-shadow 220ms ease,color 180ms ease,opacity 180ms ease;
 }
 .source-button .material-symbols-outlined { font-size: 19px; flex-shrink: 0; }
@@ -106,17 +94,18 @@
 #pluginModalOverlay :is(input,textarea):focus-visible { outline: none; }
 
 /* The same material continues through updates and the removal confirmation. */
-#pluginNoticeOverlay { z-index: 90; padding: calc(var(--top-inset) + 16px) 16px calc(var(--bottom-inset) + 16px); background: #263c5621; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+#pluginNoticeOverlay { z-index: 90; padding: calc(var(--top-inset) + 16px) 16px calc(var(--bottom-inset) + 16px); background: #263c5645; }
 #pluginNoticeCard, .source-dialog {
   color: #2c455b; width: 100%; max-width: 390px; border-radius: 30px;
   padding: 24px; max-height: calc(100dvh - var(--top-inset) - var(--bottom-inset) - 32px);
   overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
-  background: linear-gradient(135deg,#f8fcffd1,#e9f2fba6 60%,#f8fcffc9);
-  border: 1px solid #ffffff47; box-shadow: 0 24px 70px #142a4530,inset 0 1px 1px #ffffff80;
-  backdrop-filter: blur(24px) saturate(155%); -webkit-backdrop-filter: blur(24px) saturate(155%);
+  background: var(--glass-opaque, var(--glass-sheet-fill));
+  border: 1px solid #ffffffa6;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-solid-filter, var(--glass-filter));
 }
-#pluginNoticeCard { display: flex; flex-direction: column; gap: 18px; transform: scale(1); transition: transform 280ms var(--ease-glass); }
-#pluginNoticeCard.scale-95 { transform: translateY(14px) scale(.97); }
+#pluginNoticeCard { display: flex; flex-direction: column; gap: 18px; transform: scale(1); transition: transform 260ms var(--ease-glass); }
+#pluginNoticeCard.scale-95 { transform: scale(.92); }
 .source-notice-header { display: flex; align-items: center; gap: 12px; }
 #pluginNoticeTitle { white-space: normal; font-size: 18px; font-weight: 650; overflow-wrap: anywhere; }
 #pluginNoticeSubtitle { margin-top: 4px; font-size: 12px; color: #73879a; }
@@ -131,14 +120,13 @@
 #pluginNoticeSpinner { flex-shrink: 0; }
 #btnOpenPluginUpdateBrowser { width: 100%; }
 .source-dialog { margin: auto; width: calc(100% - 32px); }
-.source-dialog::backdrop { background: #263c5629; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+.source-dialog::backdrop { background: #263c5645; }
 .source-dialog[open] { animation: source-dialog-enter 240ms var(--ease-glass); }
 .source-dialog-symbol { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 18px; background: #ffffff42; color: #a87580; margin-bottom: 18px; font-size: 25px; font-weight: 300; }
 .source-dialog h2 { font-size: 21px; font-weight: 650; letter-spacing: -.03em; }
 .source-dialog p { font-size: 13px; color: #6b8092; line-height: 1.8; margin: 12px 0 24px; }
-@keyframes source-dialog-enter { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes source-dialog-enter { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
 #pluginModalOverlay .hidden, #pluginNoticeOverlay .hidden { display: none; }
-#settingsSourceCard { background: linear-gradient(135deg,#ffffff83,#d9e9f32b 60%,#ffffff40); }
 #settingsSourceCard > div:first-child > div:first-child, #settingsSourceCard > div:first-child > div:first-child > div:last-child { min-width: 0; }
 #settingsPluginIconBg { flex-shrink: 0; background: #c7dfed26; color: #5c819c; border: 1px solid #ffffff30; }
 #settingsPluginStatusText { display: block; font-size: 11px; font-weight: 450; color: #718798; overflow-wrap: anywhere; }
@@ -167,12 +155,8 @@ body:has(#pluginModalOverlay:not(.translate-y-full)) #miniPlayer { visibility: h
   #pluginNoticeOverlay { align-items: flex-start; }
   .source-dialog { margin-block: auto; }
 }
-.reduce-transparency :is(.source-glass,.source-dialog,#pluginNoticeCard) { background: #f5f9fc; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .reduce-transparency :is(.source-button,.source-icon-button,.source-icon-tile,#inputPluginUrl,#inputPluginCode) { background: #f6fafe; backdrop-filter: none; -webkit-backdrop-filter: none; border-color: #d9e4ed; }
 .reduce-transparency :is(.source-button-accent,.source-status) { background: #e4eff7; }
-.reduce-transparency :is(#pluginNoticeOverlay,.source-dialog::backdrop) { backdrop-filter: none; -webkit-backdrop-filter: none; }
 @media (prefers-reduced-transparency:reduce) {
-  :is(.source-glass,.source-dialog,#pluginNoticeCard) { background: #f5f9fc; backdrop-filter: none; -webkit-backdrop-filter: none; }
   :is(.source-button,.source-icon-button,.source-icon-tile,#inputPluginUrl,#inputPluginCode) { background: #f6fafe; backdrop-filter: none; -webkit-backdrop-filter: none; border-color: #d9e4ed; }
 }
-@supports not (backdrop-filter: blur(1px)) { :is(.source-glass,.source-dialog,#pluginNoticeCard) { background: #f5f9fc; } }
