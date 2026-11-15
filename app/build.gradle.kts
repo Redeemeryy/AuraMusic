@@ -23,8 +23,8 @@ android {
         applicationId = "com.salt.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "1.3.4"
+        versionCode = 19
+        versionName = "1.4.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -68,7 +68,7 @@ android {
 // Keep the APK's resource inventory in sync with the exact files being packaged.
 // Increment auraWebVersion for a new bundled UI; web-only releases use the publisher CLI.
 val generateUpdateBase by tasks.registering(Exec::class) {
-    val webVersion = providers.gradleProperty("auraWebVersion").orElse("3")
+    val webVersion = providers.gradleProperty("auraWebVersion").orElse("4")
     val nativeVersion = android.defaultConfig.versionCode!!
     inputs.dir("src/main/assets/web")
     inputs.file(rootProject.file("scripts/updates/package.cjs"))
