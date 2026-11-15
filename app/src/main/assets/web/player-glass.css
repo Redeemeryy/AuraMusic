@@ -1,46 +1,289 @@
+/* AuraMusic Full Player — Dark Chromatic Liquid Glass Stage */
+
 #fullPlayerOverlay {
-  background: linear-gradient(155deg, #dde7f6 0%, #eef2fa 50%, #e4eaf7 100%);
+  background-color: #09111f;
+  color: #f8fafc;
 }
 
+/* Header Orbs & Source Pill */
+#fullPlayerHeader .player-glass-orb,
+#btnCloseFullPlayer,
+#btnFlipStage {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(20px) saturate(185%);
+  -webkit-backdrop-filter: blur(20px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+#fullPlayerHeader .player-source-pill {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+#fullPlayerHeader #fullSourceLabel {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Vinyl Sapphire Crystal Plinth & Fine Micro-Grooves */
+#vinylStage .jelly-glass {
+  background: linear-gradient(148deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+  backdrop-filter: blur(26px) saturate(185%);
+  -webkit-backdrop-filter: blur(26px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 26px 58px -8px rgba(0, 0, 0, 0.48) !important;
+}
+
+#vinylDisc {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.09) 0%, transparent 48%),
+    repeating-radial-gradient(circle at center, #0d121c 0px, #0d121c 2px, #192233 2.7px, #0b1019 4px);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.56),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+#vinylDisc > div {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.24), 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+#playerWaveIndicator {
+  background: rgba(255, 255, 255, 0.16) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+#playerWaveIndicator .w-0\.5 {
+  background: #7dd3fc !important;
+}
+
+/* Apple Music Sing-Style Spotlight Lyrics Stage */
+#lyricsScrollContainer {
+  color: rgba(255, 255, 255, 0.44);
+}
+
+#lyricsStage .lyric-line {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 16px;
+  line-height: 1.55;
+  padding: 10px 14px;
+  border-radius: 16px;
+  transition:
+    transform 320ms var(--glass-motion-ease),
+    color 260ms ease,
+    opacity 260ms ease,
+    background-color 260ms ease;
+  transform-origin: center center;
+}
+
+#lyricsStage:not(:has(.lyric-line.active)) .lyric-line {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+#lyricsStage:not(:has(.lyric-line.active)) .lyric-line .lyric-trans {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+#lyricsStage .lyric-line .lyric-trans {
+  color: rgba(255, 255, 255, 0.30);
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+#lyricsStage .lyric-line.is-near {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+#lyricsStage .lyric-line.is-near .lyric-trans {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+#lyricsStage .lyric-line.active {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  text-shadow: 0 2px 24px rgba(125, 211, 252, 0.42);
+  transform: scale(1.035);
+  background: radial-gradient(85% 95% at 50% 50%, rgba(255, 255, 255, 0.11) 0%, transparent 100%);
+}
+
+#lyricsStage .lyric-line.active .lyric-trans {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#lyricsTimelineGuide > div:first-child,
+#lyricsTimelineGuide > div:last-child {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.08));
+}
+
+#lyricsTimelineTime {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+#btnLyricsTimelinePlay {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+}
+
+/* Song Meta, Favorite & Quality Pill */
+#fullTitle {
+  color: #ffffff !important;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.28);
+}
+
+#fullArtist {
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+
+#fullQualityPill {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.26) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(14px);
+}
+
+#fullQualityText {
+  color: rgba(255, 255, 255, 0.96);
+}
+
+#btnFavCurrent {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(14px);
+}
+
+#btnFavCurrent #favHeartText {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* Luminous Crystal Progress Track & Scrubber */
+#progressContainer > div:first-child {
+  background: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+
+#progressBar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.94) 0%, #bae6fd 100%) !important;
+  box-shadow: 0 0 12px rgba(186, 230, 253, 0.48);
+}
+
+#progressThumb {
+  background: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.36), 0 0 0 4px rgba(255, 255, 255, 0.18) !important;
+}
+
+#currentTime,
+#totalDuration {
+  color: rgba(255, 255, 255, 0.72) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Unified Liquid Glass Transport Capsule */
 #fullPlayerControlsRow {
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 6px 10px;
-  border-radius: 999px;
+  width: 100%;
+  max-width: 356px;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 7px 14px;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.06) 100%);
+  backdrop-filter: blur(24px) saturate(185%);
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 9999px;
+  box-shadow:
+    inset 0 1.25px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 40px -8px rgba(0, 0, 0, 0.38);
 }
 
-#fullPlayerControlsRow :is(#btnPrev, #btnNext, #btnPlayMode, #btnPlaylistQueue) {
-  background: transparent;
-  border: 0;
-  color: #162234;
+#fullPlayerControlsRow > button {
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-#fullPlayerActionRow > button {
-  background: var(--glass-opaque, rgba(255, 255, 255, 0.50));
-  backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.5));
-  -webkit-backdrop-filter: var(--glass-solid-filter, blur(14px) saturate(1.5));
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  box-shadow: 0 4px 14px rgba(18, 34, 60, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.92);
-  color: #1f3045;
+#fullPlayerControlsRow > button:not(#btnPlayPause) {
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
-#fullPlayerControlsRow #btnPlayPause {
-  background: linear-gradient(135deg, #0d66cf, #004ca8);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 76, 168, 0.30), inset 0 1.5px 1.5px rgba(255, 255, 255, 0.50);
+#fullPlayerControlsRow > button:not(#btnPlayPause):hover {
+  background: rgba(255, 255, 255, 0.16) !important;
 }
 
-#fullPlayerControlsRow button.aura-pressed:not(#btnPlayPause),
-#fullPlayerActionRow > button.aura-pressed {
-  background: rgba(212, 228, 248, 0.75);
+#btnPlayPause {
+  width: 58px;
+  height: 58px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.97) 0%, rgba(224, 240, 255, 0.88) 100%) !important;
+  color: #0f172a !important;
+  border: 1px solid #ffffff !important;
+  box-shadow:
+    inset 0 1.5px 0 #ffffff,
+    0 8px 24px rgba(0, 0, 0, 0.30),
+    0 0 22px rgba(186, 230, 253, 0.34) !important;
 }
 
-#fullPlayerControlsRow #btnPlayPause.aura-pressed { background: #145cb8; }
-#fullQualityPill { min-height: 40px; }
-.reduce-transparency #fullPlayerControlsRow #btnPlayPause { background: #005bc0; }
-.reduce-transparency #fullPlayerActionRow > button { background: #ffffff; border-color: #dbe2ed; }
+#fullPlayerActionRow {
+  gap: 10px;
+}
 
-@media (orientation: landscape) and (min-width: 700px) {
-  #fullPlayerControlsRow { justify-self: center; }
+#fullPlayerActionRow .player-action-pill {
+  background: rgba(255, 255, 255, 0.13) !important;
+  backdrop-filter: blur(18px) saturate(175%);
+  -webkit-backdrop-filter: blur(18px) saturate(175%);
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 18px rgba(0, 0, 0, 0.20) !important;
+}
+
+#fullPlayerActionRow .player-action-pill span {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Reduced Transparency Contrast Safe Mode */
+.reduce-transparency #fullPlayerOverlay {
+  background: #0f172a !important;
+}
+
+.reduce-transparency #fullPlayerHeader .player-glass-orb,
+.reduce-transparency #fullPlayerHeader .player-source-pill,
+.reduce-transparency #btnCloseFullPlayer,
+.reduce-transparency #btnFlipStage,
+.reduce-transparency #vinylStage .jelly-glass,
+.reduce-transparency #fullPlayerControlsRow,
+.reduce-transparency #fullPlayerActionRow .player-action-pill,
+.reduce-transparency #fullQualityPill,
+.reduce-transparency #btnFavCurrent {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: none !important;
+}
+
+.reduce-transparency #btnPlayPause {
+  background: #005bc0 !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
 }

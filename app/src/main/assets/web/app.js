@@ -36,6 +36,10 @@
       library: document.getElementById('view-library'),
       settings: document.getElementById('view-settings')
     },
+    mainPagerViewport: document.getElementById('mainPagerViewport'),
+    mainPagerTrack: document.getElementById('mainPagerTrack'),
+    mainNavBar: document.getElementById('mainNavBar'),
+    navGlassBar: document.querySelector('.nav-glass-bar'),
     navItems: document.querySelectorAll('.nav-item'),
 
     // Search
@@ -170,6 +174,10 @@
     importStatusTitle: document.getElementById('importStatusTitle'),
     importStatusDesc: document.getElementById('importStatusDesc'),
     plDetailCover: document.getElementById('plDetailCover'),
+    plDetailBackdropLayer: document.getElementById('plDetailBackdropLayer'),
+    plDetailHeader: document.getElementById('plDetailHeader'),
+    plDetailHeaderTitle: document.getElementById('plDetailHeaderTitle'),
+    plDetailScrollBody: document.getElementById('plDetailScrollBody'),
     plDetailTitle: document.getElementById('plDetailTitle'),
     plDetailAuthor: document.getElementById('plDetailAuthor'),
     plDetailCount: document.getElementById('plDetailCount'),
@@ -389,10 +397,20 @@
   } catch (e) {}
 
   // Navigation Switching
+  const VIEW_ORDER = ['discover', 'search', 'library', 'settings'];
+
   function switchView(viewName) {
     if (!el.views[viewName]) return;
+    const viewIndex = VIEW_ORDER.indexOf(viewName);
+    if (el.mainPagerTrack && viewIndex >= 0) {
+      el.mainPagerTrack.style.setProperty('--pager-index', String(viewIndex));
+    }
     Object.keys(el.views).forEach(key => {
-      if (el.views[key]) el.views[key].classList.toggle('active', key === viewName);
+      const viewEl = el.views[key];
+      if (!viewEl) return;
+      const isActive = key === viewName;
+      viewEl.classList.toggle('active', isActive);
+      if ('inert' in viewEl) viewEl.inert = !isActive;
     });
     el.navItems.forEach((item, index) => {
       const active = item.getAttribute('data-view') === viewName;
@@ -417,12 +435,288 @@
     }
   }
 
+  let blockNavClickUntil = 0;
+
   el.navItems.forEach(item => {
     item.addEventListener('click', () => {
+      if (Date.now() < blockNavClickUntil) return;
       const view = item.getAttribute('data-view');
       switchView(view);
     });
   });
+
+  function getActiveViewIndex() {
+    const activeIndex = VIEW_ORDER.findIndex(v => el.views[v] && el.views[v].classList.contains('active'));
+    return activeIndex >= 0 ? activeIndex : 0;
+  }
+
+  let pagerSnapTimer = null;
+
+  function triggerPagerSnap() {
+    const track = el.mainPagerTrack;
+    if (!track) return;
+    clearTimeout(pagerSnapTimer);
+    track.classList.add('is-snapping');
+    pagerSnapTimer = setTimeout(() => track.classList.remove('is-snapping'), 280);
+  }
+
+  // Press-and-hold interactive Liquid Glass droplet scrubbing on the main nav dock/rail
+  (function setupNavScrubbing() {
+    const navBar = el.navGlassBar;
+    if (!navBar) return;
+    const selectionEl = navBar.querySelector('.nav-selection');
+    let activePointerId = null;
+    let holdTimer = null;
+    let isScrubbing = false;
+    let didMoveScrub = false;
+    let startX = 0;
+    let startY = 0;
+    let lastCoord = 0;
+    let lastTime = 0;
+    let targetIndex = 0;
+
+    function computeScrub(clientX, clientY) {
+      const rect = navBar.getBoundingClientRect();
+      const isVertical = rect.height > rect.width;
+      const computed = getComputedStyle(navBar);
+      const pad = isVertical
+        ? (parseFloat(computed.paddingTop) || 4)
+        : (parseFloat(computed.paddingLeft) || 4);
+      const count = VIEW_ORDER.length;
+      const trackSpan = (isVertical ? rect.height : rect.width) - pad * 2;
+      if (trackSpan <= 0) {
+        return { rubber: targetIndex, clampedPage: targetIndex, nearest: targetIndex, isVertical };
+      }
+      const itemSpan = trackSpan / count;
+      const coord = isVertical ? (clientY - (rect.top + pad)) : (clientX - (rect.left + pad));
+      const raw = (coord / itemSpan) - 0.5;
+      let rubber = raw;
+      if (raw < 0) rubber = raw * 0.25;
+      else if (raw > count - 1) rubber = (count - 1) + (raw - (count - 1)) * 0.25;
+      const clampedPage = Math.max(0, Math.min(count - 1, raw));
+      return { rubber, clampedPage, nearest: Math.round(clampedPage), isVertical };
+    }
+
+    function applyScrubFrame(clientX, clientY) {
+      const { rubber, clampedPage, nearest, isVertical } = computeScrub(clientX, clientY);
+      const now = performance.now();
+      const dt = Math.max(8, now - lastTime);
+      const coordNow = isVertical ? clientY : clientX;
+      const velocity = (coordNow - lastCoord) / dt;
+      const stretch = 1 + Math.min(0.18, Math.abs(velocity) * 0.14);
+      lastCoord = coordNow;
+      lastTime = now;
+
+      navBar.style.setProperty('--nav-selection-index', rubber.toFixed(4));
+      if (selectionEl) selectionEl.style.setProperty('--nav-elongation', stretch.toFixed(3));
+      if (el.mainPagerTrack) {
+        el.mainPagerTrack.style.setProperty('--pager-index', clampedPage.toFixed(4));
+      }
+      targetIndex = nearest;
+      el.navItems.forEach((item, idx) => item.classList.toggle('is-scrub-target', idx === nearest));
+    }
+
+    function enterScrub(clientX, clientY) {
+      if (isScrubbing) return;
+      isScrubbing = true;
+      navBar.classList.add('is-scrubbing');
+      if (el.mainPagerTrack) el.mainPagerTrack.classList.add('is-scrubbing');
+      applyScrubFrame(clientX, clientY);
+    }
+
+    navBar.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      clearTimeout(holdTimer);
+      activePointerId = e.pointerId;
+      isScrubbing = false;
+      didMoveScrub = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      targetIndex = getActiveViewIndex();
+      lastTime = performance.now();
+      const rect = navBar.getBoundingClientRect();
+      lastCoord = rect.height > rect.width ? e.clientY : e.clientX;
+
+      holdTimer = setTimeout(() => {
+        if (activePointerId === e.pointerId && !isScrubbing) {
+          enterScrub(e.clientX, e.clientY);
+        }
+      }, 145);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (activePointerId === null || e.pointerId !== activePointerId) return;
+      const rect = navBar.getBoundingClientRect();
+      const isVertical = rect.height > rect.width;
+      const mainDelta = isVertical ? Math.abs(e.clientY - startY) : Math.abs(e.clientX - startX);
+      if (!isScrubbing) {
+        if (mainDelta > 6) {
+          clearTimeout(holdTimer);
+          didMoveScrub = true;
+          enterScrub(e.clientX, e.clientY);
+        }
+        return;
+      }
+      didMoveScrub = true;
+      applyScrubFrame(e.clientX, e.clientY);
+    }, { passive: true });
+
+    function finishScrub(e) {
+      if (activePointerId === null || e.pointerId !== activePointerId) return;
+      clearTimeout(holdTimer);
+      activePointerId = null;
+      el.navItems.forEach(item => item.classList.remove('is-scrub-target'));
+      if (selectionEl) selectionEl.style.removeProperty('--nav-elongation');
+      if (!isScrubbing) return;
+      isScrubbing = false;
+      if (didMoveScrub) blockNavClickUntil = Date.now() + 90;
+      navBar.classList.remove('is-scrubbing');
+      if (el.mainPagerTrack) el.mainPagerTrack.classList.remove('is-scrubbing');
+      if (didMoveScrub) triggerPagerSnap();
+      switchView(VIEW_ORDER[targetIndex] || VIEW_ORDER[0]);
+    }
+
+    window.addEventListener('pointerup', finishScrub);
+    window.addEventListener('pointercancel', finishScrub);
+  })();
+
+  // Touch horizontal swipe across main pager views
+  (function setupPagerSwipe() {
+    const viewport = el.mainPagerViewport;
+    const track = el.mainPagerTrack;
+    const navBar = el.navGlassBar;
+    if (!viewport || !track) return;
+
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let startIndex = 0;
+    let lastX = 0;
+    let lastTime = 0;
+    let vx = 0;
+    let gestureLock = null; // 'h' | 'v'
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      if (e.target.closest('input, textarea, select, [type="range"], #discoverPlaylists, #sourceTabs, #hotSearchPills, #qualitySelector, .overflow-x-auto')) {
+        return;
+      }
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      lastX = e.clientX;
+      lastTime = performance.now();
+      vx = 0;
+      gestureLock = null;
+      startIndex = getActiveViewIndex();
+    }, { passive: true });
+
+    viewport.addEventListener('pointermove', (e) => {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!gestureLock) {
+        if (Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) {
+          gestureLock = 'v';
+          pointerId = null;
+          return;
+        }
+        if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.45) {
+          gestureLock = 'h';
+          track.classList.add('is-scrubbing');
+          if (navBar) navBar.classList.add('is-scrubbing');
+        } else {
+          return;
+        }
+      }
+      const vw = Math.max(1, viewport.clientWidth);
+      const now = performance.now();
+      const dt = Math.max(8, now - lastTime);
+      vx = (e.clientX - lastX) / dt;
+      lastX = e.clientX;
+      lastTime = now;
+
+      const rawPage = startIndex - (dx / vw);
+      const maxIdx = VIEW_ORDER.length - 1;
+      const clamped = Math.max(0, Math.min(maxIdx, rawPage));
+      let navRubber = rawPage;
+      if (rawPage < 0) navRubber = rawPage * 0.22;
+      else if (rawPage > maxIdx) navRubber = maxIdx + (rawPage - maxIdx) * 0.22;
+
+      track.style.setProperty('--pager-index', clamped.toFixed(4));
+      if (navBar) navBar.style.setProperty('--nav-selection-index', navRubber.toFixed(4));
+    }, { passive: true });
+
+    function finishSwipe(e) {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      const wasHorizontal = gestureLock === 'h';
+      const dx = e.clientX - startX;
+      pointerId = null;
+      gestureLock = null;
+      if (!wasHorizontal) return;
+
+      track.classList.remove('is-scrubbing');
+      if (navBar) navBar.classList.remove('is-scrubbing');
+      triggerPagerSnap();
+      const vw = Math.max(1, viewport.clientWidth);
+      let nextIdx = startIndex;
+      if (dx < -vw * 0.22 || vx < -0.35) nextIdx = Math.min(VIEW_ORDER.length - 1, startIndex + 1);
+      else if (dx > vw * 0.22 || vx > 0.35) nextIdx = Math.max(0, startIndex - 1);
+      switchView(VIEW_ORDER[nextIdx]);
+    }
+
+    window.addEventListener('pointerup', finishSwipe);
+    window.addEventListener('pointercancel', finishSwipe);
+  })();
+
+  // Prevent axis-swap transitions when switching between portrait bar and landscape rail
+  (function setupOrientationSnap() {
+    const landscapeMql = window.matchMedia('(orientation: landscape) and (min-width: 700px)');
+    let wasLandscape = landscapeMql.matches;
+    const snapOnFlip = () => {
+      const isLandscape = landscapeMql.matches;
+      if (isLandscape === wasLandscape) return;
+      wasLandscape = isLandscape;
+      document.documentElement.classList.add('is-rotating');
+      if (el.navGlassBar) {
+        const sel = el.navGlassBar.querySelector('.nav-selection');
+        if (sel && sel.getAnimations) sel.getAnimations().forEach(a => a.cancel());
+      }
+      if (el.mainPagerTrack && el.mainPagerTrack.getAnimations) {
+        el.mainPagerTrack.getAnimations().forEach(a => a.cancel());
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.documentElement.classList.remove('is-rotating');
+      }));
+    };
+    if (landscapeMql.addEventListener) landscapeMql.addEventListener('change', snapOnFlip);
+    window.addEventListener('resize', snapOnFlip, { passive: true });
+  })();
+
+  // Dynamic Liquid Glass header scroll reveal + cover backdrop sync on Playlist Detail
+  (function setupPlaylistDetailGlass() {
+    if (el.plDetailScrollBody && el.plDetailHeader) {
+      el.plDetailScrollBody.addEventListener('scroll', () => {
+        el.plDetailHeader.classList.toggle('is-scrolled', el.plDetailScrollBody.scrollTop > 32);
+      }, { passive: true });
+    }
+    if (el.plDetailCover && el.plDetailBackdropLayer) {
+      const syncBackdrop = () => {
+        const src = el.plDetailCover.getAttribute('src') || el.plDetailCover.src || '';
+        el.plDetailBackdropLayer.style.backgroundImage = src && !src.startsWith('data:image/svg')
+          ? `url("${src}")`
+          : '';
+        if (el.plDetailHeaderTitle && el.plDetailTitle) {
+          el.plDetailHeaderTitle.textContent = el.plDetailTitle.textContent || '歌单详情';
+        }
+      };
+      new MutationObserver(syncBackdrop).observe(el.plDetailCover, { attributes: true, attributeFilter: ['src'] });
+      if (el.plDetailTitle) {
+        new MutationObserver(syncBackdrop).observe(el.plDetailTitle, { childList: true, characterData: true, subtree: true });
+      }
+      syncBackdrop();
+    }
+  })();
 
   // Search Type Switcher (单曲 vs 歌单)
   el.searchTypeTabs.forEach(tab => {
@@ -1726,7 +2020,7 @@
   el.playlistDetailOverlay.addEventListener('touchstart', (e) => {
     if (playlistEditing) { plIsSwiping = false; return; }
     if (el.playlistDetailOverlay.classList.contains('translate-y-full')) return;
-    if (el.plDetailTracksList && el.plDetailTracksList.scrollTop > 5) return;
+    if (el.plDetailScrollBody && el.plDetailScrollBody.scrollTop > 5) return;
     plTouchStartY = e.touches[0].clientY;
     plTouchStartX = e.touches[0].clientX;
     plIsSwiping = false;
@@ -1735,7 +2029,7 @@
   el.playlistDetailOverlay.addEventListener('touchmove', (e) => {
     if (playlistEditing) return;
     if (el.playlistDetailOverlay.classList.contains('translate-y-full')) return;
-    if (el.plDetailTracksList && el.plDetailTracksList.scrollTop > 5) return;
+    if (el.plDetailScrollBody && el.plDetailScrollBody.scrollTop > 5) return;
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
     const deltaY = currentY - plTouchStartY;
@@ -2996,9 +3290,11 @@
       state.currentLyricIndex = activeIdx;
       document.querySelectorAll('.lyric-line').forEach((node, i) => {
         const isActive = i === activeIdx;
+        const isNear = !isActive && activeIdx >= 0 && Math.abs(i - activeIdx) === 1;
         node.classList.toggle('active', isActive);
+        node.classList.toggle('is-near', isNear);
         if (!isActive) {
-          node.className = 'lyric-line text-[15px] text-on-surface-variant/40 font-semibold py-1.5' + (node.classList.contains('center-focused') ? ' center-focused' : '');
+          node.className = 'lyric-line text-[15px] text-on-surface-variant/40 font-semibold py-1.5' + (isNear ? ' is-near' : '') + (node.classList.contains('center-focused') ? ' center-focused' : '');
         }
       });
 

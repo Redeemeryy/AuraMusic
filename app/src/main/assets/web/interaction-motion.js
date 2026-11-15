@@ -54,6 +54,7 @@
     const next = nav.style.getPropertyValue('--nav-selection-index');
     if (next === selected) return;
     selected = next;
+    if (nav.classList.contains('is-scrubbing')) return;
     animate(selection, [{ '--nav-elongation': '1.09', offset: .4 }, { '--nav-elongation': '1' }],
       260, 'cubic-bezier(.22,.78,.25,1)', { property: '--nav-elongation' });
   }).observe(nav, { attributes: true, attributeFilter: ['style'] });

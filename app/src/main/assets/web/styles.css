@@ -92,18 +92,54 @@ body, html {
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Fullscreen Views */
-.view-container {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px)) + 58px) !important;
-  padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 215px) !important;
-  display: none;
+/* Fullscreen Horizontal Liquid Pager Views */
+.main-pager-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.main-pager-track {
+  --pager-index: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transform: translate3d(calc(var(--pager-index, 0) * -100%), 0, 0);
+  transition: none;
+}
+
+.main-pager-track.is-scrubbing {
+  transition: none !important;
+}
+
+.main-pager-track.is-snapping {
+  transition: transform 260ms cubic-bezier(0.22, 0.78, 0.25, 1);
+}
+
+@keyframes viewOpticalFade {
+  from {
+    opacity: 0.46;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .view-container.active {
+  animation: viewOpticalFade 200ms cubic-bezier(0.22, 0.78, 0.25, 1);
+}
+
+.view-container {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px)) + 58px) !important;
+  padding-bottom: calc(max(var(--safe-bottom, 0px), env(safe-area-inset-bottom, 0px)) + 168px) !important;
   display: block;
 }
 
@@ -179,11 +215,6 @@ body, html {
 #plDetailTracksList > div,
 #searchResultsList > div,
 #commentsList > div {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  background: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 1.5px 6px rgba(0, 0, 0, 0.03) !important;
   contain: content;
   transform: translateZ(0);
 }
@@ -244,16 +275,16 @@ body, html {
   animation: toastOut 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-/* Physical Tonearm for Vinyl Disc (Bug 8) */
+/* Precision Brushed-Titanium & Crystal Tonearm */
 .tonearm-container {
   position: absolute;
-  top: -26px;
-  right: 14px;
-  width: 54px;
-  height: 115px;
-  transform-origin: 27px 14px;
+  top: -18px;
+  right: 12px;
+  width: 44px;
+  height: 104px;
+  transform-origin: 22px 11px;
   transform: rotate(-28deg);
-  transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 25;
 }
 
@@ -262,40 +293,41 @@ body, html {
 }
 
 .tonearm-pivot {
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #cbd5e1 55%, #64748b 100%);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.95);
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.96) 0%, rgba(210, 224, 245, 0.72) 55%, rgba(120, 145, 180, 0.55) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 1.5px rgba(255, 255, 255, 0.95);
   position: absolute;
   top: 0;
-  left: 14px;
+  left: 12px;
 }
 
 .tonearm-rod {
   position: absolute;
-  top: 20px;
-  left: 25px;
-  width: 4px;
-  height: 76px;
-  background: linear-gradient(to right, #94a3b8, #f8fafc, #64748b);
-  border-radius: 2px;
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.25);
-  transform: rotate(12deg);
+  top: 15px;
+  left: 20.5px;
+  width: 2.5px;
+  height: 70px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.96), rgba(185, 204, 230, 0.6));
+  border-radius: 999px;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.26);
+  transform: rotate(11deg);
   transform-origin: top center;
 }
 
 .tonearm-head {
   position: absolute;
-  top: 90px;
-  left: 9px;
-  width: 14px;
-  height: 22px;
-  background: linear-gradient(135deg, #0f172a, #334155);
+  top: 78px;
+  left: 6px;
+  width: 10px;
+  height: 16px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(190, 210, 238, 0.75));
+  border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 3px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
-  border-top: 2px solid #0058bc;
-  transform: rotate(20deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  transform: rotate(19deg);
 }
 
 /* Ambient Refraction Aura Breathing - Optimized GPU transform & opacity without real-time convolution filter recalculation */
@@ -315,55 +347,10 @@ body, html {
   will-change: transform, opacity;
   animation: auraBreath 4.5s ease-in-out infinite;
 }
-/* Liquid Mercury Progress Bar (vivo / Apple 级水感流道滑轨) */
-#progressContainer > div:first-child {
-  height: 5px !important;
-  background: rgba(0, 30, 80, 0.08) !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(255, 255, 255, 0.85) !important;
-  border-radius: 9999px !important;
-}
-#progressBar {
-  height: 100% !important;
-  background: linear-gradient(90deg, #0077ff 0%, #6366f1 50%, #a855f7 100%) !important;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.5) !important;
-  border-radius: 9999px !important;
-}
-#progressThumb {
-  width: 16px !important;
-  height: 16px !important;
-  margin-left: -8px !important;
-  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e0eaff 55%, #c7d8fe 100%) !important;
-  border: 2.5px solid #ffffff !important;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 1), 0 3px 10px rgba(0, 80, 200, 0.32), 0 1px 3px rgba(0, 0, 0, 0.15) !important;
-  transition: transform 0.2s cubic-bezier(0.18, 1.4, 0.4, 1), left 0.06s linear !important;
-}
-#progressThumb.scale-125 {
-  transform: scale(1.35) !important;
-  box-shadow: inset 0 1.5px 3px rgba(255, 255, 255, 1), 0 6px 18px rgba(0, 80, 200, 0.45) !important;
-}
-
-#vinylStage .jelly-glass {
-  background: #242731;
-  border: 1px solid #343845;
-  color: #f5f6f9;
-  box-shadow: 0 16px 34px #17192539;
-}
-#vinylAura {
-  display: none;
-}
 
 /* Pause heavy player animations when the full player is closed to save battery & prevent heating */
 #fullPlayerOverlay.translate-y-full * {
   animation-play-state: paused !important;
-}
-
-/* Lyric Active Glow & Pulse (Bug 8) */
-.lyric-line.active {
-  color: var(--primary) !important;
-  font-size: 20px !important;
-  font-weight: 800 !important;
-  transform: scale(1.05);
-  text-shadow: 0 2px 14px rgba(0, 88, 188, 0.28);
 }
 
 /* Quality & Plugin Overlays */
@@ -387,25 +374,17 @@ body, html {
 
 /* Enhanced Lyric Interactive Styles */
 .lyric-line {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease, background-color 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
   cursor: pointer;
   border-radius: 14px;
-  padding: 8px 16px;
+  padding: 6px 14px;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 .lyric-line:active {
-  transform: scale(0.95);
-  background: rgba(0, 88, 188, 0.1);
-  color: var(--primary) !important;
-}
-
-.lyric-line.center-focused {
-  color: var(--on-surface) !important;
-  font-weight: 700 !important;
-  opacity: 1 !important;
+  transform: scale(0.96);
 }
 
 #lyricsTimelineGuide.visible {
@@ -609,7 +588,7 @@ body, html {
     transform: scale(0.68) rotate(0deg) !important;
   }
 
-  /* Right Side: FULL-HEIGHT Synchronized Scrolling Lyrics (沉浸式歌词卡片) */
+  /* Right Side: FULL-HEIGHT Synchronized Scrolling Lyrics (沉浸式玻璃歌词卡片) */
   #fullPlayerOverlay #lyricsStage,
   #fullPlayerOverlay.player-mode-lyrics #lyricsStage,
   #fullPlayerOverlay.player-mode-vinyl #lyricsStage {
@@ -624,12 +603,12 @@ body, html {
     position: relative !important;
     overflow: hidden !important;
     cursor: default !important;
-    background: var(--glass-opaque, rgba(255, 255, 255, 0.42)) !important;
-    backdrop-filter: var(--glass-solid-filter, blur(22px) saturate(1.6)) !important;
-    -webkit-backdrop-filter: var(--glass-solid-filter, blur(22px) saturate(1.6)) !important;
-    border-radius: 22px !important;
-    border: 1px solid rgba(255, 255, 255, 0.78) !important;
-    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.92), 0 8px 24px rgba(18, 34, 62, 0.08) !important;
+    background: var(--glass-player-card, rgba(255, 255, 255, 0.10)) !important;
+    backdrop-filter: var(--glass-solid-filter, blur(22px) saturate(1.7)) !important;
+    -webkit-backdrop-filter: var(--glass-solid-filter, blur(22px) saturate(1.7)) !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(255, 255, 255, 0.24) !important;
+    box-shadow: inset 0 1px 1.5px rgba(255, 255, 255, 0.34), 0 12px 32px rgba(0, 0, 0, 0.18) !important;
     mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 10%, black 20%, black 80%, rgba(0,0,0,0.85) 90%, transparent 100%) !important;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 10%, black 20%, black 80%, rgba(0,0,0,0.85) 90%, transparent 100%) !important;
   }
@@ -649,29 +628,18 @@ body, html {
 
   .lyric-line {
     font-size: 15px !important;
-    line-height: 1.4 !important;
+    line-height: 1.45 !important;
     padding: 4px 10px !important;
     border-radius: 10px !important;
     text-align: left !important;
-    opacity: 0.4 !important;
-    color: var(--on-surface-variant) !important;
     font-weight: 600 !important;
     transform-origin: left center !important;
-    transition: transform 0.25s ease, color 0.25s ease, opacity 0.25s ease, font-size 0.25s ease !important;
   }
 
   .lyric-line.active {
     font-size: 19px !important;
     font-weight: 800 !important;
-    color: var(--primary) !important;
-    opacity: 1 !important;
-    transform: scale(1.04) translateX(4px) !important;
-    text-shadow: 0 2px 14px rgba(0, 88, 188, 0.3) !important;
-  }
-
-  .lyric-line.center-focused {
-    opacity: 0.85 !important;
-    color: var(--on-surface) !important;
+    transform: scale(1.03) translateX(4px) !important;
   }
 
   /* Compact Docked Bottom Controls (精简小巧播放控制栏) */
