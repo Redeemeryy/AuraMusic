@@ -107,3 +107,42 @@ test('landscape side rail supports vertical press-and-hold scrubbing to settings
     await browser.close();
   }
 });
+
+test('Material Symbols Outlined font loads offline and collapses icon ligatures to single-glyph width', async () => {
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 393, height: 852 } });
+    await page.route('https://**', route => route.abort());
+    await page.goto(pathToFileURL(path.resolve('app/src/main/assets/web/index.html')).href, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+
+    const fontCheck = await page.evaluate(() => {
+      const loadedFaces = [...document.fonts].filter(
+        f => f.family.replace(/['"]/g, '') === 'Material Symbols Outlined' && f.status === 'loaded'
+      );
+      const navIcons = [...document.querySelectorAll('.nav-item .material-symbols-outlined')].map(el => {
+        const cs = getComputedStyle(el);
+        const fontSize = parseFloat(cs.fontSize) || 24;
+        const rect = el.getBoundingClientRect();
+        return {
+          name: el.textContent.trim(),
+          fontFamily: cs.fontFamily,
+          width: rect.width,
+          maxAllowed: fontSize * 1.35
+        };
+      });
+      return { loadedCount: loadedFaces.length, fontReadyCheck: document.fonts.check('24px "Material Symbols Outlined"'), navIcons };
+    });
+
+    assert.ok(fontCheck.loadedCount >= 1, 'Material Symbols Outlined @font-face must be loaded offline');
+    assert.equal(fontCheck.fontReadyCheck, true, 'document.fonts.check must confirm Material Symbols Outlined is active');
+    for (const icon of fontCheck.navIcons) {
+      assert.ok(
+        icon.width > 0 && icon.width <= icon.maxAllowed,
+        `icon "${icon.name}" width (${icon.width}) must fit a single glyph (<= ${icon.maxAllowed}) rather than fallback text`
+      );
+    }
+  } finally {
+    await browser.close();
+  }
+});

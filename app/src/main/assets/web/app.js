@@ -4256,7 +4256,7 @@
   }
 
   function getInstalledAppVersion() {
-    const fallbackVersion = '1.4.0';
+    const fallbackVersion = '1.4.1';
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());

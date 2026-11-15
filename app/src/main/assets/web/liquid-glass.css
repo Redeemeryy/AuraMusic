@@ -1,5 +1,13 @@
 /* AuraMusic iOS 26 Liquid Glass Design System */
 
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('material-symbols.woff2') format('woff2');
+}
+
 :root {
   --glass-tint: rgba(255, 255, 255, 0.42);
   --glass-border: rgba(255, 255, 255, 0.78);
@@ -137,11 +145,14 @@
 }
 
 .material-symbols-outlined {
-  overflow: hidden;
-  max-width: 1.25em;
-  white-space: nowrap;
-  text-overflow: clip;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
   flex-shrink: 0;
+}
+
+.material-symbols-outlined.fill-1 {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 .is-rotating .nav-glass-bar,
