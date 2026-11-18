@@ -372,16 +372,13 @@
   </nav>
 
   <!-- Fullscreen Player Overlay (Now Playing & Integrated Lyrics) -->
-  <div id="fullPlayerOverlay" class="fixed inset-0 z-[60] bg-[#fbf9fc] flex flex-col pt-safe pb-safe px-5 transition-transform duration-500 translate-y-full player-mode-vinyl select-none">
-    <!-- Ambient Player Glow -->
-    <div class="pointer-events-none fixed top-12 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-gradient-to-tr from-cyan-300/30 via-indigo-300/30 to-purple-300/30 blur-3xl opacity-90 -z-10"></div>
-    
+  <div id="fullPlayerOverlay" class="fixed inset-0 z-[60] flex flex-col pt-safe pb-safe px-5 transition-transform duration-500 translate-y-full player-mode-vinyl select-none">
     <!-- Top Header -->
     <div class="h-14 flex items-center justify-between w-full max-w-md mx-auto flex-shrink-0" id="fullPlayerHeader">
-      <button id="btnCloseFullPlayer" aria-label="收起播放器" class="glass-surface player-glass-orb w-11 h-11 rounded-full flex items-center justify-center" data-glass-lens>
+      <button id="btnCloseFullPlayer" aria-label="收起播放器" class="glass-surface player-glass-orb w-11 h-11 rounded-full flex items-center justify-center">
         <span class="material-symbols-outlined text-[22px]">keyboard_arrow_down</span>
       </button>
-      <div class="player-source-pill glass-surface px-3.5 py-1.5 rounded-full flex items-center gap-2 min-w-0 max-w-[64%]" data-glass-lens>
+      <div class="player-source-pill glass-surface px-3.5 py-1.5 rounded-full flex items-center gap-2 min-w-0 max-w-[64%]">
         <span id="fullSourceLabel" class="text-[12px] font-semibold truncate">正在播放 • 无损直通</span>
         <!-- Equalizer animation bars -->
         <div id="playerWaveIndicator" class="flex items-end gap-0.5 h-3 opacity-90 flex-shrink-0">
@@ -390,7 +387,7 @@
           <span class="wave-bar !w-0.5 !h-1.5" style="animation-delay: 0.4s"></span>
         </div>
       </div>
-      <button id="btnToggleLyrics" class="glass-surface player-glass-orb w-11 h-11 rounded-full flex items-center justify-center" title="切换唱片/歌词" data-glass-lens>
+      <button id="btnToggleLyrics" class="glass-surface player-glass-orb w-11 h-11 rounded-full flex items-center justify-center" title="切换唱片/歌词">
         <span class="material-symbols-outlined text-[20px]" id="flipStageIcon">lyrics</span>
       </button>
     </div>
@@ -400,9 +397,6 @@
       
       <!-- Stage A: Vinyl Disc Mode -->
       <div id="vinylStage" class="w-full flex-1 flex flex-col items-center justify-center py-2 cursor-pointer relative">
-        <!-- Ambient Breathing Aura -->
-        <div id="vinylAura" class="absolute w-72 h-72 sm:w-80 sm:h-80 rounded-full bg-gradient-to-tr from-cyan-400/25 via-primary/20 to-purple-400/25 blur-3xl transition-opacity duration-1000 -z-10 pointer-events-none"></div>
-
         <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
           <!-- Physical Tonearm (唱臂摆动动画) -->
           <div id="vinylTonearm" class="tonearm-container pointer-events-none">
@@ -460,7 +454,7 @@
           <p id="fullArtist" class="text-[13px] text-on-surface-variant font-medium truncate mt-0.5">AuraMusic 灵音</p>
         </div>
         <div class="flex items-center gap-1.5 flex-shrink-0">
-          <button id="fullQualityPill" class="glass-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase flex items-center gap-1 cursor-pointer" aria-haspopup="dialog" aria-controls="qualityModalContent" data-glass-lens>
+          <button id="fullQualityPill" class="glass-surface px-3 py-1 rounded-full text-[11px] font-bold uppercase flex items-center gap-1 cursor-pointer" aria-haspopup="dialog" aria-controls="qualityModalContent">
             <span id="fullQualityText">FLAC 无损</span>
             <span class="material-symbols-outlined text-[14px]">expand_more</span>
           </button>
@@ -482,7 +476,7 @@
       </div>
 
       <!-- Main Playback Controls -->
-      <div class="glass-surface player-control-glass flex items-center justify-center gap-4 sm:gap-6 px-2 pt-1" id="fullPlayerControlsRow" data-glass-lens>
+      <div class="glass-surface player-control-glass flex items-center justify-center gap-4 sm:gap-6 px-2 pt-1" id="fullPlayerControlsRow">
         <button id="btnPlayMode" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant active-squish" title="播放模式">
           <span class="material-symbols-outlined text-[22px]" id="playModeIcon">repeat</span>
         </button>
@@ -502,15 +496,15 @@
 
       <!-- Action Toolbar (Favorite, Comments, Flip View) -->
       <div class="grid grid-cols-3 gap-2.5 px-1 pt-2" id="fullPlayerActionRow">
-        <button id="btnFavCurrent" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold" data-glass-lens>
+        <button id="btnFavCurrent" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold">
           <span class="material-symbols-outlined text-[18px]" id="favHeartIcon">favorite_border</span>
           <span id="favHeartText">收藏</span>
         </button>
-        <button id="btnComments" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold" data-glass-lens>
+        <button id="btnComments" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold">
           <span class="material-symbols-outlined text-[18px]">chat_bubble_outline</span>
           <span id="commentCountBadge">评论</span>
         </button>
-        <button id="btnFlipStage" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold" data-glass-lens>
+        <button id="btnFlipStage" class="glass-surface player-action-pill py-1.5 rounded-full flex items-center justify-center gap-1.5 text-[12px] font-semibold">
           <span class="material-symbols-outlined text-[18px]" id="btnFlipStageIcon">lyrics</span>
           <span id="btnFlipStageText">歌词</span>
         </button>

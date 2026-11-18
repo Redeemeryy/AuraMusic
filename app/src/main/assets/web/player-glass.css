@@ -1,8 +1,16 @@
 /* AuraMusic Full Player — Dark Chromatic Liquid Glass Stage */
 
 #fullPlayerOverlay {
-  background-color: #09111f;
+  background: #09111f !important;
   color: #f8fafc;
+  isolation: isolate;
+  overflow: hidden;
+  contain: layout style paint;
+}
+
+html.app-background .animate-spin-disc,
+html.app-background .wave-bar {
+  animation-play-state: paused !important;
 }
 
 /* Header Orbs & Source Pill */
@@ -30,16 +38,16 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
-/* Vinyl Sapphire Crystal Plinth & Fine Micro-Grooves */
+/* Vinyl Sapphire Crystal Plinth & Fine Micro-Grooves (compositor-safe without live spin blur resampling) */
 #vinylStage .jelly-glass {
-  background: linear-gradient(148deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
-  backdrop-filter: blur(26px) saturate(185%);
-  -webkit-backdrop-filter: blur(26px) saturate(185%);
+  background: linear-gradient(148deg, rgba(255, 255, 255, 0.16) 0%, rgba(15, 23, 42, 0.42) 55%, rgba(255, 255, 255, 0.08) 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border: 1px solid rgba(255, 255, 255, 0.24) !important;
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
     inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-    0 26px 58px -8px rgba(0, 0, 0, 0.48) !important;
+    0 24px 52px -8px rgba(0, 0, 0, 0.52) !important;
 }
 
 #vinylDisc {

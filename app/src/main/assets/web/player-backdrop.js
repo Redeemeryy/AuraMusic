@@ -20,7 +20,7 @@
     host.appendChild(layer);
     fading = true;
     if (previous.length && !reduce()) {
-      const animation = layer.animate([{opacity: 0}, {opacity: 1}], {duration: 900, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'both'});
+      const animation = layer.animate([{opacity: 0}, {opacity: 1}], {duration: 520, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'both'});
       try { await animation.finished; } catch (_) { /* preference changed */ }
       animation.cancel();
     }

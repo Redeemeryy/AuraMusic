@@ -109,10 +109,14 @@ class MusicService : MediaBrowserServiceCompat() {
     var currentTrackJson: String? = null
     var isPlaying: Boolean = false
         private set
+    @Volatile var isPlayDesired: Boolean = false
+        private set
     var isCurrentFav: Boolean = false
         private set
     var currentTrackId: String = ""
         private set
+
+    fun hasTrack(): Boolean = currentTrackJson != null
 
     val currentDuration: Int
         get() = cachedDuration
@@ -255,6 +259,14 @@ class MusicService : MediaBrowserServiceCompat() {
             .build().apply {
                 addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(playing: Boolean) {
+                        val stateNow = player?.playbackState ?: Player.STATE_IDLE
+                        if (MediaControlPolicy.classifyIsPlayingChange(playing, isPlayDesired, stateNow) == BufferingTransition.KEEP_BUFFERING) {
+                            this@MusicService.isPlaying = false
+                            val pos = currentPosition.toLong()
+                            cachedPosition = pos.toInt()
+                            updateMediaSessionState(PlaybackStateCompat.STATE_BUFFERING, pos)
+                            return
+                        }
                         if (this@MusicService.isPlaying != playing) {
                             this@MusicService.isPlaying = playing
                             if (playing) {
@@ -281,6 +293,10 @@ class MusicService : MediaBrowserServiceCompat() {
                                 android.util.Log.d("JellyAudio", "ExoPlayer buffering...")
                             }
                             Player.STATE_READY -> {
+                                if (!isPlayDesired && player?.playWhenReady == true) {
+                                    player?.pause()
+                                    return
+                                }
                                 val dur = duration.toInt()
                                 if (dur > 0 && cachedDuration != dur) {
                                     cachedDuration = dur
@@ -289,9 +305,10 @@ class MusicService : MediaBrowserServiceCompat() {
                             }
                             Player.STATE_ENDED -> {
                                 this@MusicService.isPlaying = false
+                                this@MusicService.isPlayDesired = false
                                 refreshMetadata()
-                                releaseLocks()
                                 updateMediaSessionState(PlaybackStateCompat.STATE_PAUSED, currentDuration.toLong())
+                                acquireTransientLock(18_000L)
                                 onStateChangedListener?.invoke(false)
                                 onTrackCompletedListener?.invoke()
                             }
@@ -302,6 +319,7 @@ class MusicService : MediaBrowserServiceCompat() {
                     override fun onPlayerError(error: PlaybackException) {
                         android.util.Log.e("JellyAudio", "ExoPlayer playback error: ${error.errorCodeName}", error)
                         this@MusicService.isPlaying = false
+                        this@MusicService.isPlayDesired = false
                         refreshMetadata()
                         releaseLocks()
                         onStateChangedListener?.invoke(false)
@@ -328,6 +346,67 @@ class MusicService : MediaBrowserServiceCompat() {
         }
     }
 
+    private fun acquireTransientLock(timeoutMs: Long = 18_000L) {
+        try {
+            if (wakeLock == null) {
+                val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JellyAudio:PlaybackWakeLock")
+                wakeLock?.setReferenceCounted(false)
+            }
+            wakeLock?.acquire(timeoutMs)
+        } catch (e: Exception) {
+            android.util.Log.w("JellyAudio", "Failed to acquire transient wake lock: ${e.message}")
+        }
+    }
+
+    private fun ensureForegroundForControlAction(action: String?) {
+        if (!isForegroundServiceStarted && action in listOf(
+                ACTION_PLAY, ACTION_PAUSE, ACTION_NEXT, ACTION_PREV, ACTION_FAV, ACTION_LYRIC, Intent.ACTION_MEDIA_BUTTON
+            )
+        ) {
+            postNotification(currentSongTitle, currentArtistName, currentCoverBitmap, isPlaying || isPlayDesired, forceForeground = true)
+        }
+    }
+
+    private fun skipFromSystem(action: String) {
+        isPlayDesired = true
+        acquireTransientLock(18_000L)
+        MainActivity.instance?.postMediaEvent(action)
+    }
+
+    private fun handleMediaKeyEvent(event: android.view.KeyEvent?): Boolean {
+        if (event == null) return false
+        if (event.action != android.view.KeyEvent.ACTION_DOWN) return true
+        return when (MediaControlPolicy.resolveMediaKey(
+            event.keyCode,
+            isPlaying,
+            isPlayDesired,
+            player?.playWhenReady == true
+        )) {
+            MediaButtonAction.PAUSE -> {
+                pause()
+                true
+            }
+            MediaButtonAction.PLAY -> {
+                resume()
+                true
+            }
+            MediaButtonAction.NEXT -> {
+                skipFromSystem("next")
+                true
+            }
+            MediaButtonAction.PREV -> {
+                skipFromSystem("prev")
+                true
+            }
+            MediaButtonAction.STOP -> {
+                stopPlayback()
+                true
+            }
+            MediaButtonAction.NONE -> false
+        }
+    }
+
     private fun initMediaSession() {
         val sessionIntent = PendingIntent.getActivity(
             this, 1001,
@@ -351,8 +430,8 @@ class MusicService : MediaBrowserServiceCompat() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() { resume() }
                 override fun onPause() { pause() }
-                override fun onSkipToNext() { MainActivity.instance?.postMediaEvent("next") }
-                override fun onSkipToPrevious() { MainActivity.instance?.postMediaEvent("prev") }
+                override fun onSkipToNext() { skipFromSystem("next") }
+                override fun onSkipToPrevious() { skipFromSystem("prev") }
                 override fun onSeekTo(pos: Long) { seekTo(pos.toInt()) }
                 override fun onStop() { stopPlayback() }
                 override fun onSetRating(rating: RatingCompat?) {
@@ -391,9 +470,16 @@ class MusicService : MediaBrowserServiceCompat() {
                     }
                 }
                 override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+                    val keyEvent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        mediaButtonEvent?.getParcelableExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        mediaButtonEvent?.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+                    }
+                    if (handleMediaKeyEvent(keyEvent)) return true
                     return super.onMediaButtonEvent(mediaButtonEvent)
                 }
-            })
+            }, android.os.Handler(Looper.getMainLooper()))
             setFlags(
                 MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
                 MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
@@ -404,12 +490,13 @@ class MusicService : MediaBrowserServiceCompat() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        ensureForegroundForControlAction(intent?.action)
         MediaButtonReceiver.handleIntent(mediaSession, intent)
         when (intent?.action) {
             ACTION_PLAY -> resume()
             ACTION_PAUSE -> pause()
-            ACTION_NEXT -> MainActivity.instance?.postMediaEvent("next")
-            ACTION_PREV -> MainActivity.instance?.postMediaEvent("prev")
+            ACTION_NEXT -> skipFromSystem("next")
+            ACTION_PREV -> skipFromSystem("prev")
             ACTION_FAV, "vivomusicmix.media.action.FAVORITE", "action_favorite" -> {
                 val req = intent.extras?.let {
                     if (it.containsKey("isFavorite")) it.getBoolean("isFavorite")
@@ -515,6 +602,8 @@ class MusicService : MediaBrowserServiceCompat() {
 
         android.util.Log.d("JellyAudio", "MusicService play via ExoPlayer: $url, title: $title, artist: $artist, duration: $durationMs, isFav: $isCurrentFav")
 
+        isPlayDesired = true
+        acquireLocks()
         updateMediaSessionState(PlaybackStateCompat.STATE_BUFFERING, 0)
         val initialMetadata = buildMetadata(title, artist, null, isCurrentFav, cachedDuration.toLong())
         mediaSession?.setMetadata(initialMetadata)
@@ -627,6 +716,7 @@ class MusicService : MediaBrowserServiceCompat() {
     }
 
     fun pause() {
+        isPlayDesired = false
         player?.pause()
         this.isPlaying = false
         refreshMetadata()
@@ -639,7 +729,18 @@ class MusicService : MediaBrowserServiceCompat() {
     }
 
     fun resume() {
-        player?.play()
+        val p = player
+        if (p == null || p.mediaItemCount == 0 || p.playbackState == Player.STATE_IDLE) {
+            if (currentTrackJson != null) {
+                skipFromSystem("toggle")
+            }
+            return
+        }
+        isPlayDesired = true
+        if (p.playbackState == Player.STATE_ENDED) {
+            p.seekTo(0)
+        }
+        p.play()
         this.isPlaying = true
         syncNativeLyric(currentPosition.toLong())
         refreshMetadata()
@@ -663,6 +764,7 @@ class MusicService : MediaBrowserServiceCompat() {
 
     private fun stopPlayback() {
         artworkGeneration++
+        isPlayDesired = false
         player?.stop()
         player?.clearMediaItems()
         isPlaying = false
@@ -756,10 +858,20 @@ class MusicService : MediaBrowserServiceCompat() {
         }
     }
 
-    private fun postNotification(title: String, artist: String, coverBitmap: Bitmap?, playing: Boolean) {
+    private fun serviceActionPendingIntent(requestCode: Int, action: String): PendingIntent {
+        val intent = Intent(this, MusicService::class.java).apply { this.action = action }
+        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(this, requestCode, intent, flags)
+        } else {
+            PendingIntent.getService(this, requestCode, intent, flags)
+        }
+    }
+
+    private fun postNotification(title: String, artist: String, coverBitmap: Bitmap?, playing: Boolean, forceForeground: Boolean = false) {
         val notification = buildNotification(title, artist, coverBitmap, playing)
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (playing) {
+        if (playing || forceForeground) {
             if (!isForegroundServiceStarted) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
@@ -786,38 +898,17 @@ class MusicService : MediaBrowserServiceCompat() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val favIntent = PendingIntent.getService(
-            this, 10,
-            Intent(this, MusicService::class.java).apply { action = ACTION_FAV },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val prevIntent = PendingIntent.getService(
-            this, 1,
-            Intent(this, MusicService::class.java).apply { action = ACTION_PREV },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val favIntent = serviceActionPendingIntent(10, ACTION_FAV)
+        val prevIntent = serviceActionPendingIntent(1, ACTION_PREV)
 
         val toggleAction = if (playing) ACTION_PAUSE else ACTION_PLAY
+        val toggleCode = if (playing) 2 else 12
         val toggleIcon = if (playing) R.drawable.ic_notif_pause else R.drawable.ic_notif_play
         val toggleText = if (playing) "暂停" else "播放"
-        val toggleIntent = PendingIntent.getService(
-            this, 2,
-            Intent(this, MusicService::class.java).apply { action = toggleAction },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val toggleIntent = serviceActionPendingIntent(toggleCode, toggleAction)
 
-        val nextIntent = PendingIntent.getService(
-            this, 3,
-            Intent(this, MusicService::class.java).apply { action = ACTION_NEXT },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val lyricIntent = PendingIntent.getService(
-            this, 11,
-            Intent(this, MusicService::class.java).apply { action = ACTION_LYRIC },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val nextIntent = serviceActionPendingIntent(3, ACTION_NEXT)
+        val lyricIntent = serviceActionPendingIntent(11, ACTION_LYRIC)
 
         val subtitle = if (lastLyricLine.isNotEmpty()) lastLyricLine else "$artist - $title"
 

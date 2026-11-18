@@ -363,9 +363,17 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 webView.evaluateJavascript("window.handleBackPress ? window.handleBackPress() : false;") { result ->
                     if (result != "true") {
-                        // App navigation is handled above. Returning through WebView history could
-                        // revisit the pre-migration file origin and fork the user's local storage.
-                        finish()
+                        // Keep the background playback WebView session alive instead of destroying MainActivity.
+                        val keepSessionAlive = musicService?.let {
+                            MediaControlPolicy.shouldKeepBackgroundWebSessionAlive(it.isPlaying, it.isPlayDesired, it.hasTrack())
+                        } == true
+                        if (keepSessionAlive) {
+                            moveTaskToBack(true)
+                        } else {
+                            // App navigation is handled above. Returning through WebView history could
+                            // revisit the pre-migration file origin and fork the user's local storage.
+                            finish()
+                        }
                     }
                 }
             }
@@ -482,6 +490,10 @@ class MainActivity : AppCompatActivity() {
 
     fun postMediaEvent(event: String) {
         mainHandler.post {
+            if (::webView.isInitialized) {
+                webView.onResume()
+                webView.resumeTimers()
+            }
             evaluateJavascript("window.dispatchMediaEvent && window.dispatchMediaEvent('$event');")
         }
     }
@@ -600,7 +612,9 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         if (::webView.isInitialized) {
             webView.onResume()
+            webView.resumeTimers()
         }
+        evaluateJavascript("window.onNativeAppBackgroundChanged && window.onNativeAppBackgroundChanged(false);")
         startProgressPolling()
     }
 
@@ -608,7 +622,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (::webView.isInitialized) {
             webView.onResume()
+            webView.resumeTimers()
         }
+        evaluateJavascript("window.onNativeAppBackgroundChanged && window.onNativeAppBackgroundChanged(false);")
         startProgressPolling()
         if (::updater.isInitialized) updater.onResume()
         musicService?.let { service ->
@@ -627,7 +643,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         stopProgressPolling()
-        if (::webView.isInitialized && musicService?.isPlaying != true) {
+        val hasPlaybackSession = musicService?.let {
+            MediaControlPolicy.shouldKeepBackgroundWebSessionAlive(it.isPlaying, it.isPlayDesired, it.hasTrack())
+        } == true
+        evaluateJavascript("window.onNativeAppBackgroundChanged && window.onNativeAppBackgroundChanged(true);")
+        if (::webView.isInitialized && !hasPlaybackSession) {
             webView.onPause()
         }
         super.onStop()
@@ -637,6 +657,8 @@ class MainActivity : AppCompatActivity() {
         stopProgressPolling()
         mainHandler.removeCallbacks(webHealthTimeout)
         if (::updater.isInitialized) updater.close()
+        musicService?.onStateChangedListener = null
+        musicService?.onTrackCompletedListener = null
         if (isBound) {
             unbindService(connection)
             isBound = false

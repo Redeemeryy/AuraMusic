@@ -79,20 +79,24 @@
 /* Unlike background-image, opacity interpolates and stays on the compositor. */
 .player-artwork-backdrop {
   position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
-  background: radial-gradient(120% 90% at 25% 15%, #1d2d4a 0%, #0d1629 58%, #070b15 100%);
+  contain: strict;
+  background: radial-gradient(120% 90% at 25% 15%, #1d2d4a 0%, #0d1629 58%, #070b15 100%) !important;
 }
 .player-artwork-layer {
-  position: absolute; inset: -18%;
+  position: absolute; inset: -12%;
+  background-color: #09111f;
   background-size: cover; background-position: center;
-  filter: blur(62px) saturate(195%) brightness(0.76);
-  opacity: .92;
-  transform: scale(1.12);
+  filter: blur(28px) saturate(165%) brightness(0.74);
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1.16);
+  will-change: opacity;
+  backface-visibility: hidden;
 }
 .player-artwork-backdrop::after {
-  content: ''; position: absolute; inset: 0;
+  content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
     radial-gradient(90% 70% at 50% 34%, rgba(255, 255, 255, 0.04) 0%, transparent 65%),
-    linear-gradient(180deg, rgba(8, 13, 25, 0.30) 0%, rgba(10, 16, 30, 0.38) 54%, rgba(6, 10, 20, 0.68) 100%);
+    linear-gradient(180deg, rgba(8, 13, 25, 0.32) 0%, rgba(10, 16, 30, 0.40) 54%, rgba(6, 10, 20, 0.72) 100%);
 }
 .reduce-transparency .player-artwork-backdrop {
   opacity: .22;

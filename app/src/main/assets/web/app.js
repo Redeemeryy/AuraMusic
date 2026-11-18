@@ -1294,9 +1294,13 @@
 
   // Play Track
   let playRequestId = 0;
+  let resolvingPlayRequestId = 0;
+  let pausedResolveRequestId = 0;
   let pendingNativeTrackKey = null;
   async function playTrack(track, historyIndex = -1) {
     const requestId = ++playRequestId;
+    resolvingPlayRequestId = requestId;
+    if (pausedResolveRequestId === requestId) pausedResolveRequestId = 0;
     const lyricTrackKey = JSON.stringify([track.ref?.providerId || '', track.ref?.id || track.title, requestId]);
     const trackIdentity = getLyricTrackIdentity(track);
     const keepVisibleLyrics = !!trackIdentity && trackIdentity === loadedLyricIdentity && lyricsLoadState === 'loaded' && state.lyrics.length > 0;
@@ -1361,7 +1365,14 @@
 
     try {
       const resolved = await resolveStreamWithFallback(track, state.preferredQuality, track.metadata?.qualities);
+      if (resolvingPlayRequestId === requestId) resolvingPlayRequestId = 0;
       if (requestId !== playRequestId) return;
+      if (pausedResolveRequestId === requestId) {
+        pendingNativeTrackKey = null;
+        pendingQueuePlayback = null;
+        updatePlayState(false);
+        return;
+      }
       console.log('[APP] Resolved audio URL:', resolved.url, 'actual quality:', resolved.actualQuality);
       if (!resolved || !resolved.url) {
         throw new Error('未能解析到有效音频播放直链');
@@ -1418,6 +1429,7 @@
       await lyricsTask;
 
     } catch (err) {
+      if (resolvingPlayRequestId === requestId) resolvingPlayRequestId = 0;
       if (requestId !== playRequestId) return;
       pendingNativeTrackKey = null;
       pendingQueuePlayback = null;
@@ -1471,6 +1483,30 @@
     syncQualityUI();
   }
 
+  let miniCoverReqId = 0;
+  let fullCoverReqId = 0;
+
+  function swapImageSmoothly(imgEl, targetUrl, fallbackUrl, tokenGetter, nextToken) {
+    if (!imgEl) return;
+    if (imgEl.getAttribute('src') === targetUrl) return;
+    if (!targetUrl || targetUrl.startsWith('data:')) {
+      imgEl.src = targetUrl || fallbackUrl;
+      return;
+    }
+    const reqId = nextToken();
+    if (!imgEl.getAttribute('src') || imgEl.getAttribute('src').startsWith('data:image/svg+xml')) {
+      imgEl.src = fallbackUrl;
+    }
+    const loader = new Image();
+    loader.onload = () => {
+      if (tokenGetter() === reqId) imgEl.src = targetUrl;
+    };
+    loader.onerror = () => {
+      if (tokenGetter() === reqId) imgEl.src = fallbackUrl;
+    };
+    loader.src = targetUrl;
+  }
+
   // Update Mini Player UI
   function updateMiniPlayer(track) {
     document.documentElement.classList.toggle('no-track', !track);
@@ -1480,8 +1516,8 @@
     syncAllQualityBadges();
     el.miniSourceTag.textContent = '• ' + (track.ref?.providerId?.toUpperCase() || '聆澜');
     const artwork = resolveTrackArtwork(track);
-    el.miniCover.src = artwork;
-    el.miniCover.onerror = () => { el.miniCover.src = createFallbackCover(track.title, el.miniArtist.textContent); };
+    const fallback = createFallbackCover(track.title, el.miniArtist.textContent);
+    swapImageSmoothly(el.miniCover, artwork, fallback, () => miniCoverReqId, () => ++miniCoverReqId);
   }
 
   // Update Full Player UI
@@ -1492,9 +1528,9 @@
     el.fullSourceLabel.textContent = `${track.ref?.providerId?.toUpperCase() || '全网音源'} • 无损直通`;
     syncAllQualityBadges();
     const artwork = resolveTrackArtwork(track);
-    el.fullCover.src = artwork;
-    window.AuraBackdrop?.setArtwork(artwork, createFallbackCover(track.title, el.fullArtist.textContent));
-    el.fullCover.onerror = () => { el.fullCover.src = createFallbackCover(track.title, el.fullArtist.textContent); };
+    const fallback = createFallbackCover(track.title, el.fullArtist.textContent);
+    swapImageSmoothly(el.fullCover, artwork, fallback, () => fullCoverReqId, () => ++fullCoverReqId);
+    window.AuraBackdrop?.setArtwork(artwork, fallback);
     updateFavHeart();
   }
 
@@ -1533,7 +1569,8 @@
       }
       return;
     }
-    if (state.isPlaying) {
+    if (state.isPlaying || resolvingPlayRequestId > 0) {
+      if (resolvingPlayRequestId > 0) pausedResolveRequestId = resolvingPlayRequestId;
       if (window.AndroidBridge) window.AndroidBridge.pauseMusic();
       updatePlayState(false);
     } else {
@@ -3356,8 +3393,15 @@
   });
 
   window.onNativePlaybackStateChanged = function (isPlaying) {
+    if (!isPlaying && resolvingPlayRequestId > 0) {
+      pausedResolveRequestId = resolvingPlayRequestId;
+    }
     updatePlayState(isPlaying);
     if (isPlaying && pendingQueuePlayback) syncPlaybackFromNative();
+  };
+
+  window.onNativeAppBackgroundChanged = function (inBackground) {
+    document.documentElement.classList.toggle('app-background', !!inBackground);
   };
 
   window.onNativePlaybackProgress = function (posMs, durMs) {
@@ -4256,7 +4300,7 @@
   }
 
   function getInstalledAppVersion() {
-    const fallbackVersion = '1.4.1';
+    const fallbackVersion = '1.4.2';
     try {
       if (window.AndroidBridge && typeof window.AndroidBridge.getAppVersion === 'function') {
         const info = JSON.parse(window.AndroidBridge.getAppVersion());

@@ -178,3 +178,60 @@ test('loop mode leaves the queue empty when a removed song finishes', () => with
   await page.evaluate(() => onNativeTrackCompleted());
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('jelly_queue'))), []);
 }));
+
+test('pausing during slow stream resolution prevents late auto-play and keeps player & queue opaque', () => withQueue(tracks, 'sequence', async page => {
+  await page.evaluate(() => {
+    window.resolveGate = null;
+    window.MusicAPI.resolve = () => new Promise(resolve => { window.resolveGate = resolve; });
+    openFullPlayer();
+  });
+
+  // Verify full player canvas is opaque and isolated (no transparent bleed-through)
+  const playerStyle = await page.locator('#fullPlayerOverlay').evaluate(node => {
+    const cs = getComputedStyle(node);
+    return {
+      bg: cs.backgroundColor,
+      isolation: cs.isolation,
+      vinylBackdrop: getComputedStyle(document.querySelector('#vinylStage .jelly-glass')).backdropFilter
+    };
+  });
+  assert.equal(playerStyle.bg, 'rgb(9, 17, 31)');
+  assert.equal(playerStyle.isolation, 'isolate');
+  assert.equal(playerStyle.vinylBackdrop, 'none', 'spinning vinyl plinth must not resample backdrop-filter at 60fps');
+
+  // Verify queue overlay styling: opaque crystal canvas + compact 46px cover rows
+  await page.locator('#btnPlaylistQueue').click();
+  await page.waitForTimeout(350);
+  const queueMetrics = await page.evaluate(() => {
+    const overlay = document.getElementById('queueOverlay');
+    const cover = document.querySelector('#queueList .queue-cover');
+    const active = document.querySelector('#queueList .queue-item-active');
+    const oc = getComputedStyle(overlay);
+    const cr = cover ? cover.getBoundingClientRect() : null;
+    return {
+      bgImage: oc.backgroundImage,
+      isolation: oc.isolation,
+      coverWidth: cr?.width || 0,
+      coverHeight: cr?.height || 0,
+      hasActiveBg: active ? getComputedStyle(active).backgroundImage !== 'none' : false
+    };
+  });
+  assert.notEqual(queueMetrics.bgImage, 'none', 'queue overlay must have an atmospheric canvas backdrop');
+  assert.equal(queueMetrics.isolation, 'isolate');
+  assert.ok(queueMetrics.coverWidth >= 40 && queueMetrics.coverWidth <= 52, `queue cover width (${queueMetrics.coverWidth}) should be compact thumbnail size`);
+  assert.equal(queueMetrics.hasActiveBg, true, 'active queue item should be visibly highlighted');
+
+  // Background transitions pause animations while slow track skip still completes & respects in-flight pause
+  await page.locator('#btnCloseQueue').click();
+  await page.evaluate(() => {
+    window.onNativeAppBackgroundChanged(true);
+    dispatchMediaEvent('next');
+  });
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('app-background')), true);
+  await page.waitForFunction(() => !!window.resolveGate);
+  const reqCountBefore = await page.evaluate(() => playback.requested.length);
+  await page.evaluate(() => onNativePlaybackStateChanged(false));
+  await page.evaluate(() => window.resolveGate({ url: 'https://audio.test/late-resolved.mp3' }));
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => playback.requested.length), reqCountBefore, 'paused request must not blast audio when stream resolves late');
+}));
